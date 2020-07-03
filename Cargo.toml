@@ -1,0 +1,11 @@
+[package]
+name = "stm32-test"
+version = "0.1.0"
+authors = ["Brian Schwind <brianmschwind@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+stm32f4xx-hal = {version = "0.8", features = ["rt", "stm32f411"] }
+cortex-m = "0.6"
+cortex-m-rt = "0.6"
+panic-halt = "0.2"
