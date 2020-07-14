@@ -1,9 +1,7 @@
 #![no_main]
 #![no_std]
 
-// Halt on panic
-#[allow(unused_extern_crates)] // NOTE(allow) bug rust-lang/rust#53964
-extern crate panic_halt; // panic handler
+use panic_halt as _; // panic handler
 
 use stm32f4xx_hal as hal;
 
