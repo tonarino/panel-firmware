@@ -2,6 +2,7 @@
 
 * [cargo, rustc](https://rustup.rs)
 * `stm32flash` (`brew install stm32flash`, `apt install stm32flash`, etc.)
+* `serial-monitor` (`cargo install serial-monitor`)
 
 
 ## Target STM32 Models
