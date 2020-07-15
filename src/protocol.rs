@@ -6,7 +6,8 @@ use stm32f4xx_hal::{
     stm32,
 };
 
-enum Error {
+#[derive(Debug)]
+pub enum Error {
     Serial,
     BufferFull,
     MalformedMessage,
@@ -25,8 +26,9 @@ impl From<arrayvec::CapacityError> for Error {
     }
 }
 
-enum Command {
-    PowerCycler { state: bool },
+#[derive(Debug, PartialEq)]
+pub enum Command {
+    PowerCycler { slot: u8, state: bool },
     Brightness { value: u16 },
     Temperature { value: u16 },
 }
@@ -39,7 +41,7 @@ impl Command {
 
         match *buf {
             [] => Ok(None),
-            [0, state, ..] => Ok(Some((Command::PowerCycler { state: state != 0 }, 2))),
+            [0, slot, state, ..] => Ok(Some((Command::PowerCycler { slot, state: state != 0 }, 3))),
             [1, msb, lsb, ..] => {
                 let value = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Command::Brightness { value }, 3)))
@@ -55,8 +57,9 @@ impl Command {
     pub fn as_arrayvec(&self) -> ArrayVec<[u8; 8]> {
         let mut buf = ArrayVec::new();
         match *self {
-            Command::PowerCycler { state } => {
+            Command::PowerCycler { slot, state } => {
                 buf.push(0);
+                buf.push(slot);
                 buf.push(u8::from(state));
             },
             Command::Brightness { value } => {
@@ -72,7 +75,8 @@ impl Command {
     }
 }
 
-enum Report {
+#[derive(Debug, PartialEq)]
+pub enum Report {
     DialValue { diff: i8 },
     Click,
     EmergencyOff,
@@ -127,8 +131,8 @@ impl Report {
     }
 }
 
-struct Protocol<PINS> {
-    buf: ArrayVec<[u8; 1024]>,
+pub struct Protocol<PINS> {
+    buf: ArrayVec<[u8; 256]>,
     serial: Serial<stm32::USART1, PINS>,
 }
 

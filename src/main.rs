@@ -6,6 +6,7 @@ use panic_halt as _; // panic handler
 use stm32f1xx_hal as hal;
 
 use core::fmt::Write;
+use cortex_m;
 use cortex_m_rt::entry;
 use embedded_hal::{digital::v2::OutputPin, Direction as RotaryDirection};
 use hal::{
@@ -17,6 +18,7 @@ use hal::{
 };
 
 mod protocol;
+use protocol::{Command, Protocol, Report};
 
 #[entry]
 fn main() -> ! {
@@ -46,22 +48,18 @@ fn main() -> ! {
     // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
     let serial_config = SerialConfig::default().baudrate(115200.bps());
     let usart1 = dp.USART1;
+
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
     let mapr = &mut afio.mapr;
     let apb = &mut rcc.apb2;
     let usart = hal::serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
-    let (mut tx, _rx) = usart.split();
+    let mut protocol = Protocol::new(usart);
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_af1();
     let pwm_timer = dp.TIM1;
     let mut pwm = hal::pwm::tim1(pwm_timer, pwm_pin, clocks, 1.khz());
-    let max_duty = pwm.get_max_duty();
-
-    writeln!(tx, "Max duty: {:?}\r", max_duty).unwrap();
-
-    let mut current_duty = max_duty / 4;
-    pwm.set_duty(current_duty);
+    pwm.set_duty(pwm.get_max_duty());
     pwm.enable();
 
     // Connect a rotary encoder to pins A0 and A1.
@@ -92,26 +90,16 @@ fn main() -> ! {
                 },
             }
 
-            if diff > 0 {
-                current_duty = current_duty.saturating_add((diff * 100) as u16);
-                if current_duty > max_duty {
-                    current_duty = max_duty;
-                }
-            } else {
-                current_duty = current_duty.saturating_sub((-diff * 100) as u16);
-            }
-
-            writeln!(tx, "Current duty: {:?}\r", current_duty).unwrap();
-
-            pwm.set_duty(current_duty);
-
             current_count = new_count;
-            writeln!(
-                tx,
-                "Diff: {}, Count: {}, Direction: {:?}\r",
-                diff, current_count, current_direction
-            )
-            .unwrap();
+            protocol.report(Report::DialValue { diff }).unwrap();
+        }
+
+        match protocol.poll().unwrap() {
+            Some(Command::Brightness { value }) => {
+                let adjusted = (value as f32 / u16::MAX as f32) * pwm.get_max_duty() as f32;
+                pwm.set_duty(adjusted as u16);
+            },
+            _ => {}
         }
 
         delay.delay_ms(10_u32);
