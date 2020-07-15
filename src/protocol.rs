@@ -11,7 +11,6 @@ pub enum Error {
     Serial,
     BufferFull,
     MalformedMessage,
-    WouldBlock,
 }
 
 impl From<serial::Error> for Error {
