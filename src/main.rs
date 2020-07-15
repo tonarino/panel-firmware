@@ -16,6 +16,8 @@ use hal::{
     timer::{Tim2NoRemap, Timer},
 };
 
+mod protocol;
+
 #[entry]
 fn main() -> ! {
     let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
@@ -50,6 +52,18 @@ fn main() -> ! {
     let usart = hal::serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
     let (mut tx, _rx) = usart.split();
 
+    // PWM Setup
+    let pwm_pin = gpioa.pa8.into_alternate_af1();
+    let pwm_timer = dp.TIM1;
+    let mut pwm = hal::pwm::tim1(pwm_timer, pwm_pin, clocks, 1.khz());
+    let max_duty = pwm.get_max_duty();
+
+    writeln!(tx, "Max duty: {:?}\r", max_duty).unwrap();
+
+    let mut current_duty = max_duty / 4;
+    pwm.set_duty(current_duty);
+    pwm.enable();
+
     // Connect a rotary encoder to pins A0 and A1.
     let rotary_encoder_pins = (gpioa.pa0, gpioa.pa1);
     // Tim2NoRemap relates to how you can "remap" pins used on timer 2 for certain peripherals.
@@ -77,6 +91,19 @@ fn main() -> ! {
                     led.set_high().unwrap();
                 },
             }
+
+            if diff > 0 {
+                current_duty = current_duty.saturating_add((diff * 100) as u16);
+                if current_duty > max_duty {
+                    current_duty = max_duty;
+                }
+            } else {
+                current_duty = current_duty.saturating_sub((-diff * 100) as u16);
+            }
+
+            writeln!(tx, "Current duty: {:?}\r", current_duty).unwrap();
+
+            pwm.set_duty(current_duty);
 
             current_count = new_count;
             writeln!(

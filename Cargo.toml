@@ -10,6 +10,7 @@ edition = "2018"
 # https://electronics.stackexchange.com/a/248187
 stm32f1xx-hal = {version = "0.6", features = ["rt", "stm32f103", "medium"] }
 embedded-hal = "0.2"
+arrayvec = { version = "0.5", default-features = false }
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
 panic-halt = "0.2"
