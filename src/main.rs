@@ -67,17 +67,16 @@ fn main() -> ! {
 
         if new_count != current_count {
             let current_direction = rotary_encoder.direction();
+            let diff = new_count.wrapping_sub(current_count) as i16;
 
-            let diff = match current_direction {
+            match current_direction {
                 RotaryDirection::Upcounting => {
                     led.set_low().unwrap();
-                    (new_count - current_count) as i32
                 },
                 RotaryDirection::Downcounting => {
                     led.set_high().unwrap();
-                    -(current_count as i32 - new_count as i32)
                 },
-            };
+            }
 
             current_count = new_count;
             writeln!(
