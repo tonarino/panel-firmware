@@ -5,7 +5,11 @@ authors = ["Brian Schwind <brianmschwind@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-stm32f4xx-hal = {version = "0.8", features = ["rt", "stm32f411"] }
+# The "medium" feature flag means "medium density", where "density" refers to the
+# amount of features on a given microcontroller
+# https://electronics.stackexchange.com/a/248187
+stm32f1xx-hal = {version = "0.6", features = ["rt", "stm32f103", "medium"] }
+embedded-hal = "0.2"
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
 panic-halt = "0.2"
