@@ -5,7 +5,6 @@ use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
 
-use core::fmt::Write;
 use cortex_m;
 use cortex_m_rt::entry;
 use embedded_hal::{digital::v2::OutputPin, Direction as RotaryDirection};
@@ -56,11 +55,10 @@ fn main() -> ! {
     let mut protocol = Protocol::new(usart);
 
     // PWM Setup
-    let pwm_pin = gpioa.pa8.into_alternate_af1();
-    let pwm_timer = dp.TIM1;
-    let mut pwm = hal::pwm::tim1(pwm_timer, pwm_pin, clocks, 1.khz());
+    let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
+    let mut pwm = Timer::tim1(dp.TIM1, &clocks, &mut rcc.apb2).pwm(pwm_pin, mapr, 1.khz()).split();
+
     pwm.set_duty(pwm.get_max_duty());
-    pwm.enable();
 
     // Connect a rotary encoder to pins A0 and A1.
     let rotary_encoder_pins = (gpioa.pa0, gpioa.pa1);
@@ -91,7 +89,7 @@ fn main() -> ! {
             }
 
             current_count = new_count;
-            protocol.report(Report::DialValue { diff }).unwrap();
+            protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
 
         match protocol.poll().unwrap() {
@@ -99,7 +97,7 @@ fn main() -> ! {
                 let adjusted = (value as f32 / u16::MAX as f32) * pwm.get_max_duty() as f32;
                 pwm.set_duty(adjusted as u16);
             },
-            _ => {}
+            _ => {},
         }
 
         delay.delay_ms(10_u32);

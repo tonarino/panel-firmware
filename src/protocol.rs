@@ -1,10 +1,12 @@
+use stm32f1xx_hal as hal;
+
 use arrayvec::ArrayVec;
-use stm32f4xx_hal::{
-    nb::{self, block},
+use hal::{
     prelude::*,
     serial::{self, Serial},
     stm32,
 };
+use nb::{self, block};
 
 #[derive(Debug)]
 pub enum Error {
@@ -64,11 +66,11 @@ impl Command {
             Command::Brightness { value } => {
                 buf.push(1);
                 buf.try_extend_from_slice(&value.to_be_bytes()).unwrap();
-            }
+            },
             Command::Temperature { value } => {
                 buf.push(2);
                 buf.try_extend_from_slice(&value.to_be_bytes()).unwrap();
-            }
+            },
         }
         buf
     }
@@ -94,12 +96,8 @@ impl Report {
                 let diff = i8::from_be_bytes([diff]);
                 Ok(Some((Report::DialValue { diff }, 2)))
             },
-            [1, ..] => {
-                Ok(Some((Report::Click, 1)))
-            },
-            [2, ..] => {
-                Ok(Some((Report::EmergencyOff, 1)))
-            },
+            [1, ..] => Ok(Some((Report::Click, 1))),
+            [2, ..] => Ok(Some((Report::EmergencyOff, 1))),
             [3, msb, lsb, ..] => {
                 let code = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Report::Error { code }, 3)))
@@ -117,14 +115,14 @@ impl Report {
             },
             Report::Click => {
                 buf.push(1);
-            }
+            },
             Report::EmergencyOff => {
                 buf.push(2);
-            }
+            },
             Report::Error { code } => {
                 buf.push(3);
                 buf.try_extend_from_slice(&code.to_be_bytes()).unwrap();
-            }
+            },
         }
         buf
     }
@@ -147,9 +145,7 @@ impl<PINS> Protocol<PINS> {
                 self.buf.drain(0..bytes_read);
                 Ok(Some(command))
             },
-            Err(_) => {
-                Err(Error::MalformedMessage)
-            },
+            Err(_) => Err(Error::MalformedMessage),
             Ok(None) => Ok(None),
         }
     }
@@ -160,7 +156,7 @@ impl<PINS> Protocol<PINS> {
             match self.serial.read() {
                 Ok(byte) => {
                     if let Some(command) = self.process_byte(byte)? {
-                        break Ok(Some(command))
+                        break Ok(Some(command));
                     }
                 },
                 Err(nb::Error::WouldBlock) => break Ok(None),
@@ -173,7 +169,9 @@ impl<PINS> Protocol<PINS> {
     pub fn report(&mut self, report: Report) -> Result<(), Error> {
         let report_bytes = report.as_arrayvec();
         for byte in report_bytes.into_iter() {
-            block!(self.serial.write(byte))?;
+            // We can unwrap here because serial.write() returns an
+            // Infallible error.
+            block!(self.serial.write(byte)).unwrap();
         }
         Ok(())
     }
