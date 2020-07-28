@@ -127,6 +127,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 
 [[package]]
+name = "panel-protocol"
+version = "0.1.0"
+dependencies = [
+ "arrayvec",
+]
+
+[[package]]
 name = "panic-halt"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -195,6 +202,7 @@ dependencies = [
  "cortex-m-rt",
  "embedded-hal",
  "nb 1.0.0",
+ "panel-protocol",
  "panic-halt",
  "stm32f1xx-hal",
 ]
