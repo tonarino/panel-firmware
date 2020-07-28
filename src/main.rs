@@ -17,7 +17,7 @@ use hal::{
 };
 
 mod protocol;
-use protocol::{Command, Protocol, Report};
+use protocol::{Command, SerialProtocol, Report};
 
 #[entry]
 fn main() -> ! {
@@ -52,7 +52,7 @@ fn main() -> ! {
     let mapr = &mut afio.mapr;
     let apb = &mut rcc.apb2;
     let usart = hal::serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
-    let mut protocol = Protocol::new(usart);
+    let mut protocol = SerialProtocol::new(usart);
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);

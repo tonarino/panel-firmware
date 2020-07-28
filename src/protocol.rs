@@ -1,13 +1,12 @@
 use stm32f1xx_hal as hal;
 
-use arrayvec::ArrayVec;
 use hal::{
     prelude::*,
     serial::{self, Serial},
     stm32,
 };
 use nb::{self, block};
-pub use panel_protocol::{Command, Report};
+pub use panel_protocol::{Command, Report, Protocol};
 
 #[derive(Debug)]
 pub enum Error {
@@ -22,32 +21,23 @@ impl From<serial::Error> for Error {
     }
 }
 
-impl From<arrayvec::CapacityError> for Error {
-    fn from(_: arrayvec::CapacityError) -> Error {
-        Error::BufferFull
+impl From<panel_protocol::Error> for Error {
+    fn from(e: panel_protocol::Error) -> Error {
+        match e {
+            panel_protocol::Error::BufferFull => Error::BufferFull,
+            panel_protocol::Error::MalformedMessage => Error::MalformedMessage,
+        }
     }
 }
 
-pub struct Protocol<PINS> {
-    buf: ArrayVec<[u8; 256]>,
+pub struct SerialProtocol<PINS> {
+    protocol: Protocol,
     serial: Serial<stm32::USART1, PINS>,
 }
 
-impl<PINS> Protocol<PINS> {
+impl<PINS> SerialProtocol<PINS> {
     pub fn new(serial: Serial<stm32::USART1, PINS>) -> Self {
-        Self { buf: ArrayVec::new(), serial }
-    }
-
-    fn process_byte(&mut self, byte: u8) -> Result<Option<Command>, Error> {
-        self.buf.try_push(byte).map_err(|_| serial::Error::Overrun)?;
-        match Command::try_from(&self.buf[..]) {
-            Ok(Some((command, bytes_read))) => {
-                self.buf.drain(0..bytes_read);
-                Ok(Some(command))
-            },
-            Err(_) => Err(Error::MalformedMessage),
-            Ok(None) => Ok(None),
-        }
+        Self { protocol: Protocol::new(), serial }
     }
 
     /// Check to see if a new command from host is available
@@ -55,7 +45,7 @@ impl<PINS> Protocol<PINS> {
         loop {
             match self.serial.read() {
                 Ok(byte) => {
-                    if let Some(command) = self.process_byte(byte)? {
+                    if let Some(command) = self.protocol.process_byte(byte)? {
                         break Ok(Some(command));
                     }
                 },
