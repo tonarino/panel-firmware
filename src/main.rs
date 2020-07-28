@@ -5,6 +5,10 @@ use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
 
+use crate::{
+    debouncer::{Active, Debouncer},
+    serial::{Command, Report, SerialProtocol},
+};
 use cortex_m_rt::entry;
 use embedded_hal::{
     digital::v2::{InputPin, OutputPin},
@@ -17,8 +21,8 @@ use hal::{
     timer::{Tim2NoRemap, Timer},
 };
 
+mod debouncer;
 mod serial;
-use serial::{Command, Report, SerialProtocol};
 
 #[entry]
 fn main() -> ! {
@@ -67,6 +71,7 @@ fn main() -> ! {
     );
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
+    let mut debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 50, 100);
 
     let mut current_count = rotary_encoder.count();
 
@@ -90,7 +95,9 @@ fn main() -> ! {
             protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
 
-        if button_pin.is_low().unwrap() {
+        debounced_encoder_pin.update();
+
+        if debounced_encoder_pin.is_low().unwrap() {
             protocol.report(Report::Click).unwrap();
             led.set_low().unwrap();
         } else {
