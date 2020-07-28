@@ -14,12 +14,11 @@ use hal::{
     pac,
     prelude::*,
     qei::QeiOptions,
-    serial::Config as SerialConfig,
     timer::{Tim2NoRemap, Timer},
 };
 
-mod protocol;
-use protocol::{Command, Report, SerialProtocol};
+mod serial;
+use serial::{Command, Report, SerialProtocol};
 
 #[entry]
 fn main() -> ! {
@@ -45,20 +44,15 @@ fn main() -> ! {
 
     // Create a delay abstraction based on SysTick.
     let mut delay = hal::delay::Delay::new(cp.SYST, clocks);
-
     // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
-    let serial_config = SerialConfig::default().baudrate(115200.bps());
-    let usart1 = dp.USART1;
 
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
-    let mapr = &mut afio.mapr;
-    let apb = &mut rcc.apb2;
-    let usart = hal::serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
-    let mut protocol = SerialProtocol::new(usart);
+    let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
-    let mut pwm = Timer::tim1(dp.TIM1, &clocks, &mut rcc.apb2).pwm(pwm_pin, mapr, 1.khz()).split();
+    let mut pwm =
+        Timer::tim1(dp.TIM1, &clocks, &mut rcc.apb2).pwm(pwm_pin, &mut afio.mapr, 1.khz()).split();
 
     pwm.set_duty(pwm.get_max_duty());
 
@@ -97,6 +91,7 @@ fn main() -> ! {
         }
 
         if button_pin.is_low().unwrap() {
+            protocol.report(Report::Click).unwrap();
             led.set_low().unwrap();
         } else {
             led.set_high().unwrap();

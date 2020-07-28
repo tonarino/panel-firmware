@@ -1,7 +1,9 @@
 use stm32f1xx_hal as hal;
 
 use hal::{
+    afio,
     prelude::*,
+    rcc,
     serial::{self, Serial},
     stm32,
 };
@@ -35,8 +37,18 @@ pub struct SerialProtocol<PINS> {
     serial: Serial<stm32::USART1, PINS>,
 }
 
-impl<PINS> SerialProtocol<PINS> {
-    pub fn new(serial: Serial<stm32::USART1, PINS>) -> Self {
+impl<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<PINS> {
+    pub fn new(
+        usart1: stm32::USART1,
+        usart_pins: PINS,
+        afio: &mut afio::Parts,
+        apb: &mut rcc::APB2,
+        clocks: rcc::Clocks,
+    ) -> Self {
+        let serial_config = serial::Config::default().baudrate(115200.bps());
+        let mapr = &mut afio.mapr;
+        let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
+
         Self { protocol: Protocol::new(), serial }
     }
 
