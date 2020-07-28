@@ -5,9 +5,11 @@ use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
 
-use cortex_m;
 use cortex_m_rt::entry;
-use embedded_hal::{digital::v2::OutputPin, Direction as RotaryDirection};
+use embedded_hal::{
+    digital::v2::{InputPin, OutputPin},
+    Direction as RotaryDirection,
+};
 use hal::{
     pac,
     prelude::*,
@@ -17,7 +19,7 @@ use hal::{
 };
 
 mod protocol;
-use protocol::{Command, SerialProtocol, Report};
+use protocol::{Command, Report, SerialProtocol};
 
 #[entry]
 fn main() -> ! {
@@ -70,6 +72,8 @@ fn main() -> ! {
         QeiOptions::default(),
     );
 
+    let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
+
     let mut current_count = rotary_encoder.count();
 
     loop {
@@ -90,6 +94,12 @@ fn main() -> ! {
 
             current_count = new_count;
             protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
+        }
+
+        if button_pin.is_low().unwrap() {
+            led.set_low().unwrap();
+        } else {
+            led.set_high().unwrap();
         }
 
         match protocol.poll().unwrap() {

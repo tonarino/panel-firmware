@@ -6,7 +6,7 @@ use hal::{
     stm32,
 };
 use nb::{self, block};
-pub use panel_protocol::{Command, Report, Protocol};
+pub use panel_protocol::{Command, Protocol, Report};
 
 #[derive(Debug)]
 pub enum Error {
