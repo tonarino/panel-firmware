@@ -42,12 +42,12 @@ impl Command {
 
         match *buf {
             [] => Ok(None),
-            [0, slot, state, ..] => Ok(Some((Command::PowerCycler { slot, state: state != 0 }, 3))),
-            [1, msb, lsb, ..] => {
+            [b'A', slot, state, ..] => Ok(Some((Command::PowerCycler { slot, state: state != 0 }, 3))),
+            [b'B', msb, lsb, ..] => {
                 let value = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Command::Brightness { value }, 3)))
             },
-            [2, msb, lsb, ..] => {
+            [b'C', msb, lsb, ..] => {
                 let value = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Command::Temperature { value }, 3)))
             },
@@ -59,16 +59,16 @@ impl Command {
         let mut buf = ArrayVec::new();
         match *self {
             Command::PowerCycler { slot, state } => {
-                buf.push(0);
+                buf.push(b'A');
                 buf.push(slot);
                 buf.push(u8::from(state));
             },
             Command::Brightness { value } => {
-                buf.push(1);
+                buf.push(b'B');
                 buf.try_extend_from_slice(&value.to_be_bytes()).unwrap();
             },
             Command::Temperature { value } => {
-                buf.push(2);
+                buf.push(b'C');
                 buf.try_extend_from_slice(&value.to_be_bytes()).unwrap();
             },
         }
@@ -92,13 +92,13 @@ impl Report {
 
         match *buf {
             [] => Ok(None),
-            [0, diff, ..] => {
+            [b'A', diff, ..] => {
                 let diff = i8::from_be_bytes([diff]);
                 Ok(Some((Report::DialValue { diff }, 2)))
             },
-            [1, ..] => Ok(Some((Report::Click, 1))),
-            [2, ..] => Ok(Some((Report::EmergencyOff, 1))),
-            [3, msb, lsb, ..] => {
+            [b'B', ..] => Ok(Some((Report::Click, 1))),
+            [b'C', ..] => Ok(Some((Report::EmergencyOff, 1))),
+            [b'D', msb, lsb, ..] => {
                 let code = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Report::Error { code }, 3)))
             },
@@ -110,17 +110,17 @@ impl Report {
         let mut buf = ArrayVec::new();
         match *self {
             Report::DialValue { diff } => {
-                buf.push(0);
+                buf.push(b'A');
                 buf.try_extend_from_slice(&diff.to_be_bytes()).unwrap();
             },
             Report::Click => {
-                buf.push(1);
+                buf.push(b'B');
             },
             Report::EmergencyOff => {
-                buf.push(2);
+                buf.push(b'C');
             },
             Report::Error { code } => {
-                buf.push(3);
+                buf.push(b'D');
                 buf.try_extend_from_slice(&code.to_be_bytes()).unwrap();
             },
         }
