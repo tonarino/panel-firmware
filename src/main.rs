@@ -71,7 +71,7 @@ fn main() -> ! {
     );
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
-    let mut debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 50, 100);
+    let mut debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
 
     let mut current_count = rotary_encoder.count();
 
