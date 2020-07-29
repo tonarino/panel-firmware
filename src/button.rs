@@ -112,9 +112,7 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
 
     pub fn poll(&mut self) {
         if self.pin.is_low().unwrap() {
-            if self.integrator > 0 {
-                self.integrator -= 1;
-            }
+            self.integrator = self.integrator.saturating_sub(1);
         } else if self.integrator < self.max {
             self.integrator += 1;
         }
@@ -123,7 +121,6 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
             self.output = false;
         } else if self.integrator >= self.max {
             self.output = true;
-            self.integrator = self.max;
         }
     }
 
