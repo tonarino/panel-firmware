@@ -6,8 +6,7 @@ use panic_halt as _; // panic handler
 use stm32f1xx_hal as hal;
 
 use crate::{
-    button::{ButtonEvent, LongPressButton},
-    debouncer::{Active, Debouncer},
+    button::{Active, ButtonEvent, Debouncer, LongPressButton},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -20,7 +19,6 @@ use hal::{
 };
 
 mod button;
-mod debouncer;
 mod serial;
 
 #[entry]
