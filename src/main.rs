@@ -102,10 +102,11 @@ fn main() -> ! {
                 led.set_low().unwrap();
             },
             Some(ButtonEvent::ShortRelease) => {
-                protocol.report(Report::Click).unwrap();
+                protocol.report(Report::Press).unwrap();
                 led.set_high().unwrap();
             },
             Some(ButtonEvent::LongPress) => {
+                protocol.report(Report::LongPress).unwrap();
                 led.set_high().unwrap();
             },
             Some(ButtonEvent::LongRelease) => {},
