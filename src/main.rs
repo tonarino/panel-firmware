@@ -6,14 +6,12 @@ use panic_halt as _; // panic handler
 use stm32f1xx_hal as hal;
 
 use crate::{
+    button::{ButtonEvent, LongPressButton},
     debouncer::{Active, Debouncer},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
-use embedded_hal::{
-    digital::v2::{InputPin, OutputPin},
-    Direction as RotaryDirection,
-};
+use embedded_hal::{digital::v2::OutputPin, Direction as RotaryDirection};
 use hal::{
     pac,
     prelude::*,
@@ -21,12 +19,14 @@ use hal::{
     timer::{Tim2NoRemap, Timer},
 };
 
+mod button;
 mod debouncer;
 mod serial;
 
 #[entry]
 fn main() -> ! {
-    let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
+    let mut cp =
+        cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = pac::Peripherals::take().expect("failed to get stm32 peripherals");
 
     // Take ownership over the raw flash and rcc devices and convert them into the corresponding
@@ -35,6 +35,9 @@ fn main() -> ! {
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
     let clocks = rcc.cfgr.freeze(&mut flash.acr);
+
+    // Needed in order for MonoTimer to work properly
+    cp.DCB.enable_trace();
 
     // Prepare the alternate function I/O registers
     let mut afio = dp.AFIO.constrain(&mut rcc.apb2);
@@ -71,7 +74,8 @@ fn main() -> ! {
     );
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
-    let mut debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
+    let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
+    let mut long_press_button = LongPressButton::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
 
     let mut current_count = rotary_encoder.count();
 
@@ -95,13 +99,19 @@ fn main() -> ! {
             protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
 
-        debounced_encoder_pin.update();
-
-        if debounced_encoder_pin.is_low().unwrap() {
-            protocol.report(Report::Click).unwrap();
-            led.set_low().unwrap();
-        } else {
-            led.set_high().unwrap();
+        match long_press_button.update() {
+            Some(ButtonEvent::Pressed) => {
+                led.set_low().unwrap();
+            },
+            Some(ButtonEvent::ShortRelease) => {
+                protocol.report(Report::Click).unwrap();
+                led.set_high().unwrap();
+            },
+            Some(ButtonEvent::LongPress) => {
+                led.set_high().unwrap();
+            },
+            Some(ButtonEvent::LongRelease) => {},
+            _ => {},
         }
 
         match protocol.poll().unwrap() {

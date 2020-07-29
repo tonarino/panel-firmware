@@ -6,6 +6,7 @@ pub struct Debouncer<T: InputPin> {
     integrator: u8,
     max: u8,
     output: bool,
+    active_mode: Active,
 }
 
 pub enum Active {
@@ -27,7 +28,7 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
             Active::High => false,
         };
 
-        Self { pin, integrator, max, output }
+        Self { pin, integrator, max, output, active_mode }
     }
 
     pub fn update(&mut self) {
@@ -46,16 +47,12 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
             self.integrator = self.max;
         }
     }
-}
 
-impl<T: InputPin<Error = Infallible>> InputPin for Debouncer<T> {
-    type Error = Infallible;
-
-    fn is_high(&self) -> Result<bool, Self::Error> {
-        Ok(self.output)
-    }
-
-    fn is_low(&self) -> Result<bool, Self::Error> {
-        Ok(!self.output)
+    pub fn is_pressed(&self) -> bool {
+        match (&self.active_mode, self.output) {
+            (Active::High, true) => true,
+            (Active::Low, false) => true,
+            _ => false,
+        }
     }
 }
