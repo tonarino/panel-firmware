@@ -2,9 +2,9 @@
 # It is not intended for manual editing.
 [[package]]
 name = "aligned"
-version = "0.3.2"
+version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb1ce8b3382016136ab1d31a1b5ce807144f8b7eb2d5f16b2108f0f07edceb94"
+checksum = "b575d1c64159869041184f397bea2e9a5acf4584db5c6106cda2940f41bafa51"
 dependencies = [
  "as-slice",
 ]
