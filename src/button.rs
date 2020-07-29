@@ -45,8 +45,8 @@ impl<T: InputPin<Error = Infallible>> LongPressButton<T> {
         Self { pin, timer, button_state, long_press_timeout_ticks }
     }
 
-    pub fn update(&mut self) -> Option<ButtonEvent> {
-        self.pin.update();
+    pub fn poll(&mut self) -> Option<ButtonEvent> {
+        self.pin.poll();
 
         match self.button_state {
             ButtonState::Released => {
@@ -108,7 +108,7 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
         Self { pin, integrator, max, output, active_mode }
     }
 
-    pub fn update(&mut self) {
+    pub fn poll(&mut self) {
         if self.pin.is_low().unwrap() {
             if self.integrator > 0 {
                 self.integrator -= 1;

@@ -97,7 +97,7 @@ fn main() -> ! {
             protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
 
-        match long_press_button.update() {
+        match long_press_button.poll() {
             Some(ButtonEvent::Pressed) => {
                 led.set_low().unwrap();
             },
