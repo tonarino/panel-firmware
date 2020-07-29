@@ -25,7 +25,19 @@ STM32F
 ## Steps
 
 ```
-rustup target add thumbv7em-none-eabihf
+rustup target add thumbv7em-none-eabi
+```
+
+## Workflow
+
+You can use the makefile for easy development.
+
+```bash
+# Build and flash the firmware
+make flash
+
+# Monitor the serial output
+make monitor
 ```
 
 ## Board Connection
@@ -81,16 +93,4 @@ Set the baud rate with the `-b` flag:
 
 ```
 serial-monitor -b 9600 -p /dev/cu.SLAB_USBtoUART
-```
-
-## Makefile
-
-The above commands are encapsulated in a Makefile.
-
-```bash
-# Build and flash the firmware
-make flash
-
-# Monitor the serial output
-make monitor
 ```
