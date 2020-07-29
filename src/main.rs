@@ -6,7 +6,7 @@ use panic_halt as _; // panic handler
 use stm32f1xx_hal as hal;
 
 use crate::{
-    button::{Active, ButtonEvent, Debouncer, LongPressButton},
+    button::{Active, Button, ButtonEvent, Debouncer},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -73,7 +73,7 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
-    let mut long_press_button = LongPressButton::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
+    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
 
     let mut current_count = rotary_encoder.count();
 
@@ -97,7 +97,7 @@ fn main() -> ! {
             protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
 
-        match long_press_button.poll() {
+        match encoder_button.poll() {
             Some(ButtonEvent::Pressed) => {
                 led.set_low().unwrap();
             },

@@ -8,7 +8,7 @@ use hal::{
     time::{Instant, MonoTimer},
 };
 
-pub struct LongPressButton<T: InputPin> {
+pub struct Button<T: InputPin> {
     pin: Debouncer<T>,
     timer: MonoTimer,
     button_state: ButtonState,
@@ -35,7 +35,7 @@ enum ButtonState {
     LongPressed,
 }
 
-impl<T: InputPin<Error = Infallible>> LongPressButton<T> {
+impl<T: InputPin<Error = Infallible>> Button<T> {
     pub fn new(pin: Debouncer<T>, long_press_timeout_ms: u32, dwt: DWT, clocks: Clocks) -> Self {
         let timer = MonoTimer::new(dwt, clocks);
         let button_state = ButtonState::Released;
