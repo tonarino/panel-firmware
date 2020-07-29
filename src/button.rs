@@ -77,6 +77,8 @@ impl<T: InputPin<Error = Infallible>> Button<T> {
     }
 }
 
+// Debouncer code inspired by Kenneth Kuhn's C debouncer:
+// http://www.kennethkuhn.com/electronics/debounce.c
 pub struct Debouncer<T: InputPin> {
     pin: T,
     integrator: u8,
