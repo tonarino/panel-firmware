@@ -8,7 +8,7 @@ use hal::{
     stm32,
 };
 use nb::{self, block};
-pub use panel_protocol::{Command, Protocol, Report};
+pub use panel_protocol::{Command, CommandReader, Report};
 
 #[derive(Debug)]
 pub enum Error {
@@ -33,7 +33,7 @@ impl From<panel_protocol::Error> for Error {
 }
 
 pub struct SerialProtocol<PINS> {
-    protocol: Protocol,
+    protocol: CommandReader,
     serial: Serial<stm32::USART1, PINS>,
 }
 
@@ -49,7 +49,7 @@ impl<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<PINS> {
         let mapr = &mut afio.mapr;
         let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
 
-        Self { protocol: Protocol::new(), serial }
+        Self { protocol: CommandReader::new(), serial }
     }
 
     /// Check to see if a new command from host is available
