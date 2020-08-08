@@ -35,7 +35,10 @@ fn main() -> ! {
     // RCC = Reset and Clock Control
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .sysclk(32.mhz()) // Needed for SPI to work properly
+        .freeze(&mut flash.acr);
 
     // Needed in order for MonoTimer to work properly
     cp.DCB.enable_trace();
@@ -60,8 +63,7 @@ fn main() -> ! {
     // SPI Setup (for WS8212b RGB LEDs)
     // clock, mosi, miso
     let mosi_pin = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
-    let sck_pin = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
-    let spi_pins = (sck_pin, NoMiso, mosi_pin);
+    let spi_pins = (NoSck, NoMiso, mosi_pin);
     let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
 
     let mut spi = Spi::<_, Spi1NoRemap, _>::spi1(
@@ -69,15 +71,20 @@ fn main() -> ! {
         spi_pins,
         &mut afio.mapr,
         spi_mode,
-        2250.khz(),
+        2250.khz(), // https://os.mbed.com/teams/ST/wiki/SPI-output-clock-frequency
         clocks,
         &mut rcc.apb2,
     );
 
     {
-        // let mut data = 200u8;
-        let color_grb = [0, 255, 0];
+        let color_grb = [0, 20, 20];
         let patterns = [0b1000_1000, 0b1000_1110, 0b11101000, 0b11101110];
+
+        for _ in 0..20 {
+            block!(spi.send(0)).unwrap();
+            spi.read().ok();
+        }
+
         for _led in 0..4 {
             for color_channel in 0..3 {
                 // Writes a single byte
@@ -85,8 +92,6 @@ fn main() -> ! {
                 for _ in 0..4 {
                     let bits = (data & 0b1100_0000) >> 6;
                     block!({
-                        // Some implementations (stm32f0xx-hal) want a matching read
-                        // We don't want to block so we just hope it's ok this way
                         spi.read().ok();
                         spi.send(patterns[bits as usize])
                     })
@@ -94,15 +99,13 @@ fn main() -> ! {
                     data <<= 2;
                 }
             }
+        }
 
-            // for _ in 0..20 {
-            //     block!(spi.send(0)).unwrap();
-            //     spi.read().ok();
-            // }
+        for _ in 0..20 {
+            block!(spi.send(0)).unwrap();
+            spi.read().ok();
         }
     }
-
-    hal::spi::Spi1::Bus::get_frequency(&clocks).0;
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
