@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-
 use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
@@ -16,8 +15,10 @@ use hal::{
     pac,
     prelude::*,
     qei::QeiOptions,
+    spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
     timer::{Tim2NoRemap, Timer},
 };
+use nb::block;
 
 mod button;
 mod counter;
@@ -55,6 +56,53 @@ fn main() -> ! {
 
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
     let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
+
+    // SPI Setup (for WS8212b RGB LEDs)
+    // clock, mosi, miso
+    let mosi_pin = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let sck_pin = gpioa.pa5.into_alternate_push_pull(&mut gpioa.crl);
+    let spi_pins = (sck_pin, NoMiso, mosi_pin);
+    let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
+
+    let mut spi = Spi::<_, Spi1NoRemap, _>::spi1(
+        dp.SPI1,
+        spi_pins,
+        &mut afio.mapr,
+        spi_mode,
+        2250.khz(),
+        clocks,
+        &mut rcc.apb2,
+    );
+
+    {
+        // let mut data = 200u8;
+        let color_grb = [0, 255, 0];
+        let patterns = [0b1000_1000, 0b1000_1110, 0b11101000, 0b11101110];
+        for _led in 0..4 {
+            for color_channel in 0..3 {
+                // Writes a single byte
+                let mut data = color_grb[color_channel];
+                for _ in 0..4 {
+                    let bits = (data & 0b1100_0000) >> 6;
+                    block!({
+                        // Some implementations (stm32f0xx-hal) want a matching read
+                        // We don't want to block so we just hope it's ok this way
+                        spi.read().ok();
+                        spi.send(patterns[bits as usize])
+                    })
+                    .unwrap();
+                    data <<= 2;
+                }
+            }
+
+            // for _ in 0..20 {
+            //     block!(spi.send(0)).unwrap();
+            //     spi.read().ok();
+            // }
+        }
+    }
+
+    hal::spi::Spi1::Bus::get_frequency(&clocks).0;
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
