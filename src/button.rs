@@ -45,6 +45,10 @@ impl<T: InputPin<Error = Infallible>> Button<T> {
         Self { pin, timer, button_state, long_press_timeout_ticks }
     }
 
+    pub fn is_pressed(&self) -> bool {
+        self.pin.is_pressed()
+    }
+
     pub fn poll(&mut self) -> Option<ButtonEvent> {
         self.pin.poll();
 

@@ -78,25 +78,6 @@ fn main() -> ! {
     let mut current_count = rotary_encoder.count();
 
     loop {
-        let new_count = rotary_encoder.count();
-
-        if new_count != current_count {
-            let current_direction = rotary_encoder.direction();
-            let diff = new_count.wrapping_sub(current_count) as i16;
-
-            match current_direction {
-                RotaryDirection::Upcounting => {
-                    led.set_low().unwrap();
-                },
-                RotaryDirection::Downcounting => {
-                    led.set_high().unwrap();
-                },
-            }
-
-            current_count = new_count;
-            protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
-        }
-
         match encoder_button.poll() {
             Some(ButtonEvent::Pressed) => {
                 led.set_low().unwrap();
@@ -112,6 +93,25 @@ fn main() -> ! {
             Some(ButtonEvent::LongRelease) => {},
             _ => {},
         }
+
+        let new_count = rotary_encoder.count();
+
+        if !encoder_button.is_pressed() && new_count != current_count {
+            let current_direction = rotary_encoder.direction();
+            let diff = new_count.wrapping_sub(current_count) as i16;
+
+            match current_direction {
+                RotaryDirection::Upcounting => {
+                    led.set_low().unwrap();
+                },
+                RotaryDirection::Downcounting => {
+                    led.set_high().unwrap();
+                },
+            }
+
+            protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
+        }
+        current_count = new_count;
 
         match protocol.poll().unwrap() {
             Some(Command::Brightness { value }) => {
