@@ -7,10 +7,11 @@ use stm32f1xx_hal as hal;
 
 use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
+    counter::Counter,
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
-use embedded_hal::{digital::v2::OutputPin, Direction as RotaryDirection};
+use embedded_hal::digital::v2::OutputPin;
 use hal::{
     pac,
     prelude::*,
@@ -19,6 +20,7 @@ use hal::{
 };
 
 mod button;
+mod counter;
 mod serial;
 
 #[entry]
@@ -70,12 +72,11 @@ fn main() -> ! {
         &mut afio.mapr,
         QeiOptions::default(),
     );
+    let mut counter = Counter::new(rotary_encoder);
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
-
-    let mut current_count = rotary_encoder.count();
 
     loop {
         match encoder_button.poll() {
@@ -94,24 +95,11 @@ fn main() -> ! {
             _ => {},
         }
 
-        let new_count = rotary_encoder.count();
-
-        if !encoder_button.is_pressed() && new_count != current_count {
-            let current_direction = rotary_encoder.direction();
-            let diff = new_count.wrapping_sub(current_count) as i16;
-
-            match current_direction {
-                RotaryDirection::Upcounting => {
-                    led.set_low().unwrap();
-                },
-                RotaryDirection::Downcounting => {
-                    led.set_high().unwrap();
-                },
+        if !encoder_button.is_pressed() {
+            if let Some(diff) = counter.poll() {
+                protocol.report(Report::DialValue { diff }).unwrap();
             }
-
-            protocol.report(Report::DialValue { diff: diff as i8 }).unwrap();
         }
-        current_count = new_count;
 
         match protocol.poll().unwrap() {
             Some(Command::Brightness { value }) => {
