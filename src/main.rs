@@ -7,6 +7,7 @@ use stm32f1xx_hal as hal;
 use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
+    rgb_led::{LedStrip, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -18,10 +19,10 @@ use hal::{
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
     timer::{Tim2NoRemap, Timer},
 };
-use nb::block;
 
 mod button;
 mod counter;
+mod rgb_led;
 mod serial;
 
 #[entry]
@@ -61,12 +62,11 @@ fn main() -> ! {
     let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
 
     // SPI Setup (for WS8212b RGB LEDs)
-    // clock, mosi, miso
     let mosi_pin = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
     let spi_pins = (NoSck, NoMiso, mosi_pin);
     let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
 
-    let mut spi = Spi::<_, Spi1NoRemap, _>::spi1(
+    let spi = Spi::<_, Spi1NoRemap, _>::spi1(
         dp.SPI1,
         spi_pins,
         &mut afio.mapr,
@@ -76,36 +76,8 @@ fn main() -> ! {
         &mut rcc.apb2,
     );
 
-    {
-        let color_grb = [0, 20, 20];
-        let patterns = [0b1000_1000, 0b1000_1110, 0b11101000, 0b11101110];
-
-        for _ in 0..20 {
-            block!(spi.send(0)).unwrap();
-            spi.read().ok();
-        }
-
-        for _led in 0..4 {
-            for color_channel in 0..3 {
-                // Writes a single byte
-                let mut data = color_grb[color_channel];
-                for _ in 0..4 {
-                    let bits = (data & 0b1100_0000) >> 6;
-                    block!({
-                        spi.read().ok();
-                        spi.send(patterns[bits as usize])
-                    })
-                    .unwrap();
-                    data <<= 2;
-                }
-            }
-        }
-
-        for _ in 0..20 {
-            block!(spi.send(0)).unwrap();
-            spi.read().ok();
-        }
-    }
+    let mut led_strip = LedStrip::new(spi);
+    led_strip.set_all(Rgb::new(0, 30, 255));
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
