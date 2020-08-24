@@ -7,6 +7,7 @@ use stm32f1xx_hal as hal;
 use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
+    overhead_light::OverheadLight,
     rgb_led::{LedStrip, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
@@ -17,11 +18,12 @@ use hal::{
     prelude::*,
     qei::QeiOptions,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
-    timer::{Tim2NoRemap, Timer},
+    timer::{Tim2NoRemap, Tim3PartialRemap, Timer},
 };
 
 mod button;
 mod counter;
+mod overhead_light;
 mod rgb_led;
 mod serial;
 
@@ -61,6 +63,9 @@ fn main() -> ! {
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
     let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
 
+    // Disable JTAG so that we can use the pin PB4 for the timer
+    let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
+
     // SPI Setup (for WS8212b RGB LEDs)
     let mosi_pin = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
     let spi_pins = (NoSck, NoMiso, mosi_pin);
@@ -80,11 +85,28 @@ fn main() -> ! {
     led_strip.set_all(Rgb::new(0, 30, 255));
 
     // PWM Setup
-    let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);
-    let mut pwm =
-        Timer::tim1(dp.TIM1, &clocks, &mut rcc.apb2).pwm(pwm_pin, &mut afio.mapr, 1.khz()).split();
+    // https://docs.rs/stm32f1xx-hal/0.6.1/stm32f1xx_hal/timer/index.html
+    let timer3_pwm_pins = (
+        pb4.into_alternate_push_pull(&mut gpiob.crl),
+        gpiob.pb5.into_alternate_push_pull(&mut gpiob.crl),
+        gpiob.pb0.into_alternate_push_pull(&mut gpiob.crl),
+        gpiob.pb1.into_alternate_push_pull(&mut gpiob.crl),
+    );
+    let timer4_pwm_pins = (
+        gpiob.pb6.into_alternate_push_pull(&mut gpiob.crl),
+        gpiob.pb7.into_alternate_push_pull(&mut gpiob.crl),
+        gpiob.pb8.into_alternate_push_pull(&mut gpiob.crh),
+        gpiob.pb9.into_alternate_push_pull(&mut gpiob.crh),
+    );
+    let (pwm1, pwm2, pwm3, pwm4) = Timer::tim3(dp.TIM3, &clocks, &mut rcc.apb1)
+        .pwm::<Tim3PartialRemap, _, _, _>(timer3_pwm_pins, &mut afio.mapr, 1.khz())
+        .split();
+    let (pwm5, pwm6, pwm7, pwm8) = Timer::tim4(dp.TIM4, &clocks, &mut rcc.apb1)
+        .pwm(timer4_pwm_pins, &mut afio.mapr, 1.khz())
+        .split();
 
-    pwm.set_duty(pwm.get_max_duty());
+    let mut light1 = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
+    let mut light2 = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
 
     // Connect a rotary encoder to pins A0 and A1.
     let rotary_encoder_pins = (gpioa.pa0, gpioa.pa1);
@@ -125,9 +147,15 @@ fn main() -> ! {
         }
 
         match protocol.poll().unwrap() {
-            Some(Command::Brightness { value }) => {
-                let adjusted = (value as f32 / u16::MAX as f32) * pwm.get_max_duty() as f32;
-                pwm.set_duty(adjusted as u16);
+            Some(Command::Brightness { target, value }) => match target {
+                0 => light1.set_brightness(value),
+                1 => light2.set_brightness(value),
+                _ => {},
+            },
+            Some(Command::Temperature { target, value }) => match target {
+                0 => light1.set_color_temperature(value),
+                1 => light2.set_color_temperature(value),
+                _ => {},
             },
             _ => {},
         }
