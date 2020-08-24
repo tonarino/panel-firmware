@@ -95,8 +95,8 @@ fn main() -> ! {
             _ => {},
         }
 
-        if !encoder_button.is_pressed() {
-            if let Some(diff) = counter.poll() {
+        if let Some(diff) = counter.poll() {
+            if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
             }
         }
