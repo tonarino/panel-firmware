@@ -1,6 +1,5 @@
 #![no_main]
 #![no_std]
-
 use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
@@ -8,6 +7,7 @@ use stm32f1xx_hal as hal;
 use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
+    rgb_led::{LedStrip, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -16,11 +16,13 @@ use hal::{
     pac,
     prelude::*,
     qei::QeiOptions,
+    spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
     timer::{Tim2NoRemap, Timer},
 };
 
 mod button;
 mod counter;
+mod rgb_led;
 mod serial;
 
 #[entry]
@@ -34,7 +36,10 @@ fn main() -> ! {
     // RCC = Reset and Clock Control
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.freeze(&mut flash.acr);
+    let clocks = rcc
+        .cfgr
+        .sysclk(32.mhz()) // Needed for SPI to work properly
+        .freeze(&mut flash.acr);
 
     // Needed in order for MonoTimer to work properly
     cp.DCB.enable_trace();
@@ -55,6 +60,24 @@ fn main() -> ! {
 
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
     let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
+
+    // SPI Setup (for WS8212b RGB LEDs)
+    let mosi_pin = gpioa.pa7.into_alternate_push_pull(&mut gpioa.crl);
+    let spi_pins = (NoSck, NoMiso, mosi_pin);
+    let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
+
+    let spi = Spi::<_, Spi1NoRemap, _>::spi1(
+        dp.SPI1,
+        spi_pins,
+        &mut afio.mapr,
+        spi_mode,
+        2250.khz(), // https://os.mbed.com/teams/ST/wiki/SPI-output-clock-frequency
+        clocks,
+        &mut rcc.apb2,
+    );
+
+    let mut led_strip = LedStrip::new(spi);
+    led_strip.set_all(Rgb::new(0, 30, 255));
 
     // PWM Setup
     let pwm_pin = gpioa.pa8.into_alternate_push_pull(&mut gpioa.crh);

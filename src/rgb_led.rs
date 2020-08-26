@@ -1,0 +1,75 @@
+use embedded_hal::spi::FullDuplex;
+use nb::block;
+
+const LED_COUNT: usize = 2;
+
+pub struct LedStrip<F: FullDuplex<u8>> {
+    spi_bus: F,
+}
+
+pub struct Rgb {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+impl Rgb {
+    pub fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+}
+
+impl<F: FullDuplex<u8>> LedStrip<F> {
+    pub fn new(spi_bus: F) -> Self {
+        Self { spi_bus }
+    }
+
+    pub fn set_all(&mut self, rgb: Rgb) {
+        self.flush();
+
+        for _led in 0..LED_COUNT {
+            self.write_byte(rgb.g);
+            self.write_byte(rgb.r);
+            self.write_byte(rgb.b);
+        }
+
+        self.flush();
+    }
+
+    #[allow(unused)]
+    pub fn set_colors(&mut self, rgb_data: &[Rgb; LED_COUNT]) {
+        self.flush();
+
+        for led in rgb_data {
+            self.write_byte(led.g);
+            self.write_byte(led.r);
+            self.write_byte(led.b);
+        }
+
+        self.flush();
+    }
+
+    fn write_byte(&mut self, data: u8) {
+        let mut data = data;
+        let patterns = [0b1000_1000, 0b1000_1110, 0b11101000, 0b11101110];
+
+        for _ in 0..4 {
+            let bits = (data & 0b1100_0000) >> 6;
+            let _ = block!({
+                let _ = self.spi_bus.send(patterns[bits as usize]);
+                self.spi_bus.read()
+            });
+
+            data <<= 2;
+        }
+    }
+
+    fn flush(&mut self) {
+        for _ in 0..20 {
+            let _ = block!({
+                let _ = self.spi_bus.send(0).map_err(|_| ());
+                self.spi_bus.read()
+            });
+        }
+    }
+}
