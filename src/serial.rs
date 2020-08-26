@@ -12,14 +12,14 @@ pub use panel_protocol::{Command, CommandReader, Report};
 
 #[derive(Debug)]
 pub enum Error {
-    Serial,
+    Serial(hal::serial::Error),
     BufferFull,
     MalformedMessage,
 }
 
 impl From<serial::Error> for Error {
-    fn from(_: serial::Error) -> Error {
-        Error::Serial
+    fn from(e: serial::Error) -> Error {
+        Error::Serial(e)
     }
 }
 
