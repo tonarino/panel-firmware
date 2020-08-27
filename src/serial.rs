@@ -1,14 +1,18 @@
 use stm32f1xx_hal as hal;
 
+use cortex_m::singleton;
 use hal::{
     afio,
+    dma::{dma1::C5, CircBuffer, Half},
     prelude::*,
     rcc,
-    serial::{self, Serial},
+    serial::{self, RxDma1, Tx},
     stm32,
 };
 use nb::{self, block};
 pub use panel_protocol::{Command, CommandReader, Report};
+
+const DMA_BUF_SIZE: usize = 1;
 
 #[derive(Debug)]
 pub enum Error {
@@ -32,14 +36,16 @@ impl From<panel_protocol::Error> for Error {
     }
 }
 
-pub struct SerialProtocol<PINS> {
+pub struct SerialProtocol {
     protocol: CommandReader,
-    serial: Serial<stm32::USART1, PINS>,
+    tx: Tx<stm32::USART1>,
+    rx_buf: CircBuffer<[u8; DMA_BUF_SIZE], RxDma1>,
 }
 
-impl<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<PINS> {
-    pub fn new(
+impl SerialProtocol {
+    pub fn new<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>>(
         usart1: stm32::USART1,
+        dma_channel_5: C5,
         usart_pins: PINS,
         afio: &mut afio::Parts,
         apb: &mut rcc::APB2,
@@ -48,23 +54,52 @@ impl<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<PINS> {
         let serial_config = serial::Config::default().baudrate(115200.bps());
         let mapr = &mut afio.mapr;
         let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
+        let (tx, rx) = serial.split();
 
-        Self { protocol: CommandReader::new(), serial }
+        let buf = singleton!(: [[u8; DMA_BUF_SIZE]; 2] = [[0; DMA_BUF_SIZE]; 2]).unwrap();
+        let rx = rx.with_dma(dma_channel_5);
+        let rx_buf = rx.circ_read(buf);
+
+        Self { protocol: CommandReader::new(), tx, rx_buf }
+    }
+
+    fn read_byte(&mut self) -> Option<u8> {
+        // TODO - instead of checking the next half to read, maybe we just call "peek",
+        //        and keep track of how many bytes have been read and which read half we're
+        //        currently on.
+        let byte_to_return =
+            self.rx_buf.peek(|buf, _read_half| if buf.len() > 0 { Some(buf[0]) } else { None });
+
+        match byte_to_return {
+            Ok(b) => b,
+            Err(_e) => None,
+        }
     }
 
     /// Check to see if a new command from host is available
     pub fn poll(&mut self) -> Result<Option<Command>, Error> {
-        loop {
-            match self.serial.read() {
-                Ok(byte) => {
-                    if let Some(command) = self.protocol.process_byte(byte)? {
-                        break Ok(Some(command));
-                    }
-                },
-                Err(nb::Error::WouldBlock) => break Ok(None),
-                Err(nb::Error::Other(e)) => break Err(e.into()),
+        if let Some(byte) = self.read_byte() {
+            if let Some(command) = self.protocol.process_byte(byte)? {
+                Ok(Some(command))
+            } else {
+                Ok(None)
             }
+        } else {
+            Ok(None)
         }
+
+        // loop {
+        //     match self.rx.read() {
+        //         Ok(byte) => {
+        //             if let Some(command) = self.protocol.process_byte(byte)? {
+        //                 break Ok(Some(command));
+        //             }
+        //         },
+        //         Err(nb::Error::WouldBlock) => break Ok(None),
+        //         Err(nb::Error::Other(e)) => break Err(e.into()),
+        //     }
+        // }
+        // Ok(None)
     }
 
     /// Sends a new report to the host, blocks until fully written or error occurs.
@@ -73,7 +108,7 @@ impl<PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<PINS> {
         for byte in report_bytes.into_iter() {
             // We can unwrap here because serial.write() returns an
             // Infallible error.
-            block!(self.serial.write(byte)).unwrap();
+            block!(self.tx.write(byte)).unwrap();
         }
         Ok(())
     }

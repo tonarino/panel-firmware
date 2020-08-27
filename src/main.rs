@@ -9,7 +9,7 @@ use crate::{
     counter::Counter,
     overhead_light::OverheadLight,
     rgb_led::{LedStrip, Rgb},
-    serial::{Command, Report, SerialProtocol},
+    serial::{Command, Error as SerialError, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
@@ -61,7 +61,9 @@ fn main() -> ! {
     // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
 
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
-    let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
+    let dma_channel_5 = dp.DMA1.split(&mut rcc.ahb).5;
+    let mut protocol =
+        SerialProtocol::new(dp.USART1, dma_channel_5, usart_pins, &mut afio, &mut rcc.apb2, clocks);
 
     // Disable JTAG so that we can use the pin PB4 for the timer
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
@@ -146,19 +148,46 @@ fn main() -> ! {
             }
         }
 
-        match protocol.poll().unwrap() {
-            Some(Command::Brightness { target, value }) => match target {
-                0 => light1.set_brightness(value),
-                1 => light2.set_brightness(value),
+        match protocol.poll() {
+            Ok(Some(Command::Brightness { target, value: _ })) => match target {
+                0 => led_strip.set_colors(&[Rgb::new(0, 255, 0), Rgb::new(0, 0, 0)]),
+                1 => led_strip.set_colors(&[Rgb::new(0, 0, 0), Rgb::new(0, 255, 0)]),
                 _ => {},
             },
-            Some(Command::Temperature { target, value }) => match target {
-                0 => light1.set_color_temperature(value),
-                1 => light2.set_color_temperature(value),
-                _ => {},
+            Ok(Some(Command::Temperature { target, value: _ })) => match target {
+                0 => led_strip.set_all(Rgb::new(50, 50, 50)),
+                1 => led_strip.set_all(Rgb::new(50, 50, 50)),
+                _ => led_strip.set_all(Rgb::new(50, 50, 50)),
             },
-            _ => {},
+            Ok(None) | Ok(Some(_)) => {
+                led_strip.set_all(Rgb::new(0, 255, 0));
+            },
+            Err(e) => match e {
+                SerialError::Serial(_e) => {
+                    led_strip.set_all(Rgb::new(255, 0, 0));
+                },
+                SerialError::BufferFull => {
+                    led_strip.set_all(Rgb::new(255, 0, 255));
+                },
+                SerialError::MalformedMessage => {
+                    led_strip.set_all(Rgb::new(255, 255, 0));
+                },
+            },
         }
+
+        // match protocol.poll().unwrap() {
+        //     Some(Command::Brightness { target, value }) => match target {
+        //         0 => light1.set_brightness(value),
+        //         1 => light2.set_brightness(value),
+        //         _ => {},
+        //     },
+        //     Some(Command::Temperature { target, value }) => match target {
+        //         0 => light1.set_color_temperature(value),
+        //         1 => light2.set_color_temperature(value),
+        //         _ => {},
+        //     },
+        //     _ => {},
+        // }
 
         delay.delay_ms(10_u32);
     }
