@@ -53,7 +53,7 @@ impl SerialProtocol {
         apb: &mut rcc::APB2,
         clocks: rcc::Clocks,
     ) -> Self {
-        let serial_config = serial::Config::default().baudrate(9600.bps());
+        let serial_config = serial::Config::default().baudrate(115200.bps());
         let mapr = &mut afio.mapr;
         let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
         let (tx, rx) = serial.split();

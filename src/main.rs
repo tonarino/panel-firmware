@@ -188,6 +188,6 @@ fn main() -> ! {
         //     _ => {},
         // }
 
-        delay.delay_ms(1_u32);
+        // delay.delay_ms(1_u32);
     }
 }
