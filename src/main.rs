@@ -150,8 +150,8 @@ fn main() -> ! {
 
         match protocol.poll() {
             Ok(Some(Command::Brightness { target, value: _ })) => match target {
-                0 => led_strip.set_colors(&[Rgb::new(0, 255, 0), Rgb::new(0, 0, 0)]),
-                1 => led_strip.set_colors(&[Rgb::new(0, 0, 0), Rgb::new(0, 255, 0)]),
+                0 => led_strip.set_colors(&[Rgb::new(255, 255, 255), Rgb::new(0, 0, 0)]),
+                1 => led_strip.set_colors(&[Rgb::new(0, 0, 0), Rgb::new(255, 255, 255)]),
                 _ => {},
             },
             Ok(Some(Command::Temperature { target, value: _ })) => match target {
@@ -159,9 +159,8 @@ fn main() -> ! {
                 1 => led_strip.set_all(Rgb::new(50, 50, 50)),
                 _ => led_strip.set_all(Rgb::new(50, 50, 50)),
             },
-            Ok(None) | Ok(Some(_)) => {
-                led_strip.set_all(Rgb::new(0, 255, 0));
-            },
+            Ok(Some(_)) => led_strip.set_colors(&[Rgb::new(0, 0, 0), Rgb::new(255, 0, 0)]),
+            Ok(None) => {},
             Err(e) => match e {
                 SerialError::Serial(_e) => {
                     led_strip.set_all(Rgb::new(255, 0, 0));
@@ -189,6 +188,6 @@ fn main() -> ! {
         //     _ => {},
         // }
 
-        delay.delay_ms(10_u32);
+        delay.delay_ms(1_u32);
     }
 }

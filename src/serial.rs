@@ -1,5 +1,6 @@
 use stm32f1xx_hal as hal;
 
+use core::fmt::Write;
 use cortex_m::singleton;
 use hal::{
     afio,
@@ -40,6 +41,7 @@ pub struct SerialProtocol {
     protocol: CommandReader,
     tx: Tx<stm32::USART1>,
     rx_buf: CircBuffer<[u8; DMA_BUF_SIZE], RxDma1>,
+    next_half_to_read: Half,
 }
 
 impl SerialProtocol {
@@ -51,7 +53,7 @@ impl SerialProtocol {
         apb: &mut rcc::APB2,
         clocks: rcc::Clocks,
     ) -> Self {
-        let serial_config = serial::Config::default().baudrate(115200.bps());
+        let serial_config = serial::Config::default().baudrate(9600.bps());
         let mapr = &mut afio.mapr;
         let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
         let (tx, rx) = serial.split();
@@ -60,18 +62,29 @@ impl SerialProtocol {
         let rx = rx.with_dma(dma_channel_5);
         let rx_buf = rx.circ_read(buf);
 
-        Self { protocol: CommandReader::new(), tx, rx_buf }
+        let next_half_to_read = Half::First;
+
+        Self { protocol: CommandReader::new(), tx, rx_buf, next_half_to_read }
     }
 
     fn read_byte(&mut self) -> Option<u8> {
         // TODO - instead of checking the next half to read, maybe we just call "peek",
         //        and keep track of how many bytes have been read and which read half we're
         //        currently on.
-        let byte_to_return =
-            self.rx_buf.peek(|buf, _read_half| if buf.len() > 0 { Some(buf[0]) } else { None });
+        let next_half_to_read = self.next_half_to_read;
 
-        match byte_to_return {
-            Ok(b) => b,
+        let peek_result = self.rx_buf.peek(|buf, read_half| match (read_half, next_half_to_read) {
+            (Half::First, Half::First) => (Some(buf[0]), Half::Second),
+            (Half::Second, Half::Second) => (Some(buf[0]), Half::First),
+            _ => (None, next_half_to_read),
+        });
+
+        match peek_result {
+            Ok((Some(byte), next_half_to_read)) => {
+                self.next_half_to_read = next_half_to_read;
+                Some(byte)
+            },
+            Ok(_) => None,
             Err(_e) => None,
         }
     }
