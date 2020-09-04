@@ -120,7 +120,7 @@ fn main() -> ! {
     let mut counter = Counter::new(rotary_encoder);
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
-    let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 100);
+    let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
 
     loop {

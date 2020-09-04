@@ -49,9 +49,8 @@ where
         // Invert the value because our transistor circuit inverts the PWM signal.
         let brightness = u16::MAX - brightness;
 
-        // TODO(bschwind) - Change f64 to f32 once we figure out what caused a crash with f32 math.
-        let adjusted = ((brightness as f64 / u16::MAX as f64)
-            * self.brightness_c1.get_max_duty() as f64) as u16;
+        let adjusted = ((brightness as f32 / u16::MAX as f32)
+            * self.brightness_c1.get_max_duty() as f32) as u16;
         self.brightness_c1.set_duty(adjusted);
         self.brightness_c2.set_duty(adjusted);
     }
@@ -63,9 +62,8 @@ where
         // Invert the value because our transistor circuit inverts the PWM signal.
         let color = u16::MAX - color;
 
-        // TODO(bschwind) - Change f64 to f32 once we figure out what caused a crash with f32 math.
         let adjusted =
-            ((color as f64 / u16::MAX as f64) * self.color_c1.get_max_duty() as f64) as u16;
+            ((color as f32 / u16::MAX as f32) * self.color_c1.get_max_duty() as f32) as u16;
         self.color_c1.set_duty(adjusted);
         self.color_c2.set_duty(adjusted);
     }
