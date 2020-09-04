@@ -56,10 +56,7 @@ fn main() -> ! {
     // Set up the LED (B12).
     let mut led = gpiob.pb12.into_push_pull_output(&mut gpiob.crh);
 
-    // Create a delay abstraction based on SysTick.
-    let mut delay = hal::delay::Delay::new(cp.SYST, clocks);
     // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
-
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
     let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
 
@@ -105,8 +102,11 @@ fn main() -> ! {
         .pwm(timer4_pwm_pins, &mut afio.mapr, 1.khz())
         .split();
 
-    let mut light1 = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
-    let mut light2 = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
+    // The overhead light closer to the screen.
+    let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
+
+    // The overhead light farther away from the screen.
+    let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
 
     // Connect a rotary encoder to pins A0 and A1.
     let rotary_encoder_pins = (gpioa.pa0, gpioa.pa1);
@@ -148,13 +148,13 @@ fn main() -> ! {
 
         match protocol.poll().unwrap() {
             Some(Command::Brightness { target, value }) => match target {
-                0 => light1.set_brightness(value),
-                1 => light2.set_brightness(value),
+                0 => front_light.set_brightness(value),
+                1 => back_light.set_brightness(value),
                 _ => {},
             },
             Some(Command::Temperature { target, value }) => match target {
-                0 => light1.set_color_temperature(value),
-                1 => light2.set_color_temperature(value),
+                0 => front_light.set_color_temperature(value),
+                1 => back_light.set_color_temperature(value),
                 _ => {},
             },
             _ => {},
