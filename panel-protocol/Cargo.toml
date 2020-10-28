@@ -1,0 +1,12 @@
+[package]
+name = "panel-protocol"
+version = "0.1.0"
+authors = ["Jake McGinty <me@jake.su>"]
+edition = "2018"
+
+[features]
+default = []
+std = []
+
+[dependencies]
+arrayvec = { version = "0.5", default-features = false, features = ["array-sizes-129-255"] }
