@@ -7,30 +7,30 @@
 
 ## Target STM32 Models
 
-(the following README steps target this chip)
+The current firmware uses this model:
+```
+STM32F
+103C8T6
+```
+[Board Info](https://stm32-base.org/boards/STM32F103C8T6-Black-Pill)
+
+Also supported if we swap in `stm32f4xx-hal` instead of `stm32f1xx-hal` and address a few small compile errors:
 ```
 STM32F
 411CEU6
 ```
 [Board Info](https://stm32-base.org/boards/STM32F411CEU6-WeAct-Black-Pill-V2.0)
 
-(I have some of these laying around, not tested yet)
-```
-STM32F
-103C8T6
-```
-
-[Board Info](https://stm32-base.org/boards/STM32F103C8T6-Black-Pill)
 
 ## Steps
 
 ```
-rustup target add thumbv7em-none-eabi
+rustup target add thumbv7m-none-eabi
 ```
 
 ## Workflow
 
-You can use the makefile for easy development.
+You can use the Makefile for easy development.
 
 ```bash
 # Build and flash the firmware
@@ -44,7 +44,7 @@ make monitor
 
 Using a CP2102 (3.3v logic) or another USB-Serial converter, connect its `TX` to pin `A10` and its `RX` to pin `A9`.
 Also connect 3.3v from the CP2102 to the 3.3v pin on the STM32, and do the same for ground.
-If you try to power the STM32 from its USB C port without this power connection, it won't work.
+If you try to power the STM32 from its USB port without this power connection, it won't work.
 
 ## Convert to BIN File
 
