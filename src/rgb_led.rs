@@ -1,6 +1,5 @@
 use embedded_hal::spi::FullDuplex;
 use nb::block;
-use stm32f1xx_hal::time::{Instant, MonoTimer};
 
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
@@ -75,26 +74,5 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
                 self.spi_bus.read()
             });
         }
-    }
-}
-
-#[allow(dead_code)]
-pub struct Pulser {
-    instant: Instant,
-    interval_ticks: f32,
-}
-
-impl Pulser {
-    pub fn new(interval_ms: u32, timer: &MonoTimer) -> Self {
-        let instant = timer.now();
-        let interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
-
-        Self { instant, interval_ticks }
-    }
-
-    #[allow(dead_code)]
-    pub fn intensity(&self) -> f32 {
-        let intervals = self.instant.elapsed() as f32 / self.interval_ticks;
-        (libm::sinf(intervals) + 1.0) / 2.0
     }
 }
