@@ -1,12 +1,8 @@
 use core::convert::Infallible;
 use stm32f1xx_hal as hal;
 
-use cortex_m::peripheral::DWT;
 use embedded_hal::digital::v2::InputPin;
-use hal::{
-    rcc::Clocks,
-    time::{Instant, MonoTimer},
-};
+use hal::time::{Instant, MonoTimer};
 
 pub struct Button<T: InputPin> {
     pin: Debouncer<T>,
@@ -36,8 +32,7 @@ enum ButtonState {
 }
 
 impl<T: InputPin<Error = Infallible>> Button<T> {
-    pub fn new(pin: Debouncer<T>, long_press_timeout_ms: u32, dwt: DWT, clocks: Clocks) -> Self {
-        let timer = MonoTimer::new(dwt, clocks);
+    pub fn new(pin: Debouncer<T>, long_press_timeout_ms: u32, timer: MonoTimer) -> Self {
         let button_state = ButtonState::Released;
         let long_press_timeout_ticks =
             (timer.frequency().0 as f32 * (long_press_timeout_ms as f32 / 1000.0)) as u32;

@@ -7,6 +7,7 @@ pub enum Command {
     PowerCycler { slot: u8, state: bool },
     Brightness { target: u8, value: u16 },
     Temperature { target: u8, value: u16 },
+    Led { r: u8, g: u8, b: u8, pulse: bool },
 }
 
 #[derive(Debug)]
@@ -52,7 +53,10 @@ impl Command {
                 let value = u16::from_be_bytes([msb, lsb]);
                 Ok(Some((Command::Temperature { target, value }, 4)))
             },
-            [header, ..] if b"ABC".contains(&header) => Ok(None),
+            [b'D', r, g, b, pulse, ..] => {
+                Ok(Some((Command::Led { r, g, b, pulse: pulse != 0 }, 5)))
+            },
+            [header, ..] if b"ABCD".contains(&header) => Ok(None),
             _ => Err(()),
         }
     }
@@ -74,6 +78,13 @@ impl Command {
                 buf.push(b'C');
                 buf.push(target);
                 buf.try_extend_from_slice(&value.to_be_bytes()).unwrap();
+            },
+            Command::Led { r, g, b, pulse } => {
+                buf.push(b'D');
+                buf.push(r);
+                buf.push(g);
+                buf.push(b);
+                buf.push(u8::from(pulse));
             },
         }
         buf
