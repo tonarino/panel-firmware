@@ -8,7 +8,7 @@ use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
     overhead_light::OverheadLight,
-    rgb_led::{LedStrip, Rgb},
+    rgb_led::{LedStrip, Pulser, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -18,6 +18,7 @@ use hal::{
     prelude::*,
     qei::QeiOptions,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
+    time::MonoTimer,
     timer::{Tim2NoRemap, Tim3PartialRemap, Timer},
 };
 
@@ -79,7 +80,9 @@ fn main() -> ! {
     );
 
     let mut led_strip = LedStrip::new(spi);
-    led_strip.set_all(Rgb::new(0, 30, 255));
+
+    let timer = MonoTimer::new(cp.DWT, clocks);
+    let pulser = Pulser::new(5000, &timer);
 
     // PWM Setup
     // https://docs.rs/stm32f1xx-hal/0.6.1/stm32f1xx_hal/timer/index.html
@@ -121,7 +124,10 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
-    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
+    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
+
+    let mut led_color = (0u8, 0u8, 0u8);
+    let mut led_pulse = false;
 
     loop {
         match encoder_button.poll() {
@@ -157,7 +163,18 @@ fn main() -> ! {
                 1 => back_light.set_color_temperature(value),
                 _ => {},
             },
+            Some(Command::Led { r, g, b, pulse }) => {
+                led_color = (r, g, b);
+                led_pulse = pulse;
+            },
             _ => {},
         }
+
+        let led_intensity = if led_pulse { pulser.intensity() } else { 1.0 };
+        led_strip.set_all(Rgb::new(
+            (led_color.0 as f32 * led_intensity) as u8,
+            (led_color.1 as f32 * led_intensity) as u8,
+            (led_color.2 as f32 * led_intensity) as u8,
+        ));
     }
 }

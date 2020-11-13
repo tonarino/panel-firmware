@@ -14,4 +14,5 @@ cortex-m = "0.6"
 cortex-m-rt = "0.6"
 panic-halt = "0.2"
 nb = "1"
+libm = "0.2"
 panel-protocol = { path = "./panel-protocol" }
