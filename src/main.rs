@@ -127,7 +127,6 @@ fn main() -> ! {
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
 
     let mut led_color = (0u8, 0u8, 0u8);
-    let mut led_pulse = false;
 
     loop {
         match encoder_button.poll() {
@@ -163,18 +162,16 @@ fn main() -> ! {
                 1 => back_light.set_color_temperature(value),
                 _ => {},
             },
-            Some(Command::Led { r, g, b, pulse }) => {
-                led_color = (r, g, b);
-                led_pulse = pulse;
+            // TODO: Support pulse. We need to fix this underlying issue first:
+            // https://github.com/tonarino/portal/issues/805
+            Some(Command::Led { r, g, b, .. }) => {
+                let new_led_color = (r, g, b);
+                if led_color != new_led_color {
+                    led_strip.set_all(Rgb::new(new_led_color.0, new_led_color.1, new_led_color.2));
+                    led_color = new_led_color;
+                }
             },
             _ => {},
         }
-
-        let led_intensity = if led_pulse { pulser.intensity() } else { 1.0 };
-        led_strip.set_all(Rgb::new(
-            (led_color.0 as f32 * led_intensity) as u8,
-            (led_color.1 as f32 * led_intensity) as u8,
-            (led_color.2 as f32 * led_intensity) as u8,
-        ));
     }
 }
