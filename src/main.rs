@@ -8,7 +8,7 @@ use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
     overhead_light::OverheadLight,
-    rgb_led::{LedStrip, Pulser, Rgb},
+    rgb_led::{LedStrip, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -18,7 +18,6 @@ use hal::{
     prelude::*,
     qei::QeiOptions,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
-    time::MonoTimer,
     timer::{Tim2NoRemap, Tim3PartialRemap, Timer},
 };
 
@@ -80,9 +79,7 @@ fn main() -> ! {
     );
 
     let mut led_strip = LedStrip::new(spi);
-
-    let timer = MonoTimer::new(cp.DWT, clocks);
-    let _pulser = Pulser::new(5000, &timer);
+    led_strip.set_all(Rgb::new(0, 30, 255));
 
     // PWM Setup
     // https://docs.rs/stm32f1xx-hal/0.6.1/stm32f1xx_hal/timer/index.html
@@ -124,9 +121,7 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
-    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
-
-    let mut led_color = (0u8, 0u8, 0u8);
+    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
 
     loop {
         match encoder_button.poll() {
@@ -161,15 +156,6 @@ fn main() -> ! {
                 0 => front_light.set_color_temperature(value),
                 1 => back_light.set_color_temperature(value),
                 _ => {},
-            },
-            // TODO: Support pulse. We need to fix this underlying issue first:
-            // https://github.com/tonarino/portal/issues/805
-            Some(Command::Led { r, g, b, .. }) => {
-                let new_led_color = (r, g, b);
-                if led_color != new_led_color {
-                    led_strip.set_all(Rgb::new(new_led_color.0, new_led_color.1, new_led_color.2));
-                    led_color = new_led_color;
-                }
             },
             _ => {},
         }
