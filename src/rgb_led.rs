@@ -78,6 +78,7 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
     }
 }
 
+#[allow(dead_code)]
 pub struct Pulser {
     instant: Instant,
     interval_ticks: f32,
@@ -91,6 +92,7 @@ impl Pulser {
         Self { instant, interval_ticks }
     }
 
+    #[allow(dead_code)]
     pub fn intensity(&self) -> f32 {
         let intervals = self.instant.elapsed() as f32 / self.interval_ticks;
         (libm::sinf(intervals) + 1.0) / 2.0
