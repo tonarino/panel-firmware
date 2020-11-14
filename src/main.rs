@@ -19,7 +19,10 @@ use hal::{
     qei::QeiOptions,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
     timer::{Tim2NoRemap, Tim3PartialRemap, Timer},
+    usb::{Peripheral, UsbBus},
 };
+use usb_device::device::{UsbDeviceBuilder, UsbVidPid};
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod button;
 mod counter;
@@ -38,10 +41,9 @@ fn main() -> ! {
     // RCC = Reset and Clock Control
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let clocks = rcc
-        .cfgr
-        .sysclk(32.mhz()) // Needed for SPI to work properly
-        .freeze(&mut flash.acr);
+    let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(48.mhz()).pclk1(24.mhz()).freeze(&mut flash.acr);
+
+    assert!(clocks.usbclk_valid());
 
     // Needed in order for MonoTimer to work properly
     cp.DCB.enable_trace();
@@ -56,9 +58,33 @@ fn main() -> ! {
     // Set up the LED (B12).
     let mut led = gpiob.pb12.into_push_pull_output(&mut gpiob.crh);
 
+    // Set up USB communications
+    let usb_pin_d_plus = gpioa.pa12; //.into_push_pull_output(&mut gpioa.crh);
+    let usb_pin_d_minus = gpioa.pa11;
+
+    let usb = Peripheral { usb: dp.USB, pin_dm: usb_pin_d_minus, pin_dp: usb_pin_d_plus };
+
+    let usb_bus = UsbBus::new(usb);
+    let serial = SerialPort::new(&usb_bus);
+
+    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("tonari")
+        .product("tonari hardware controller")
+        .serial_number("12345")
+        .device_class(USB_CLASS_CDC)
+        .build();
+
     // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
     let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
-    let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
+    let mut protocol = SerialProtocol::new(
+        dp.USART1,
+        usart_pins,
+        &mut afio,
+        &mut rcc.apb2,
+        clocks,
+        usb_dev,
+        serial,
+    );
 
     // Disable JTAG so that we can use the pin PB4 for the timer
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
@@ -68,7 +94,7 @@ fn main() -> ! {
     let spi_pins = (NoSck, NoMiso, mosi_pin);
     let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
 
-    let spi = Spi::<_, Spi1NoRemap, _>::spi1(
+    let spi = Spi::<_, Spi1NoRemap, _, u8>::spi1(
         dp.SPI1,
         spi_pins,
         &mut afio.mapr,
@@ -121,7 +147,9 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
-    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
+    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, cp.DCB, clocks);
+
+    let mut brightness = 255;
 
     loop {
         match encoder_button.poll() {
@@ -148,7 +176,12 @@ fn main() -> ! {
 
         match protocol.poll().unwrap() {
             Some(Command::Brightness { target, value }) => match target {
-                0 => front_light.set_brightness(value),
+                0 => {
+                    front_light.set_brightness(value);
+
+                    let factor = ((value as f32 / u16::MAX as f32) * 255.0) as u8;
+                    brightness = factor;
+                },
                 1 => back_light.set_brightness(value),
                 _ => {},
             },
@@ -159,5 +192,7 @@ fn main() -> ! {
             },
             _ => {},
         }
+
+        led_strip.set_all(Rgb::new(brightness, brightness, brightness));
     }
 }
