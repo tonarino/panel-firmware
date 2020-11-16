@@ -74,17 +74,7 @@ fn main() -> ! {
         .device_class(USB_CLASS_CDC)
         .build();
 
-    // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
-    let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
-    let mut protocol = SerialProtocol::new(
-        dp.USART1,
-        usart_pins,
-        &mut afio,
-        &mut rcc.apb2,
-        clocks,
-        usb_dev,
-        serial,
-    );
+    let mut protocol = SerialProtocol::new(usb_dev, serial);
 
     // Disable JTAG so that we can use the pin PB4 for the timer
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
@@ -174,23 +164,25 @@ fn main() -> ! {
             }
         }
 
-        match protocol.poll().unwrap() {
-            Some(Command::Brightness { target, value }) => match target {
-                0 => {
-                    front_light.set_brightness(value);
+        for command in protocol.poll().unwrap() {
+            match command {
+                Command::Brightness { target, value } => match target {
+                    0 => {
+                        front_light.set_brightness(value);
 
-                    let factor = ((value as f32 / u16::MAX as f32) * 255.0) as u8;
-                    brightness = factor;
+                        let factor = ((value as f32 / u16::MAX as f32) * 255.0) as u8;
+                        brightness = factor;
+                    },
+                    1 => back_light.set_brightness(value),
+                    _ => {},
                 },
-                1 => back_light.set_brightness(value),
+                Command::Temperature { target, value } => match target {
+                    0 => front_light.set_color_temperature(value),
+                    1 => back_light.set_color_temperature(value),
+                    _ => {},
+                },
                 _ => {},
-            },
-            Some(Command::Temperature { target, value }) => match target {
-                0 => front_light.set_color_temperature(value),
-                1 => back_light.set_color_temperature(value),
-                _ => {},
-            },
-            _ => {},
+            }
         }
 
         led_strip.set_all(Rgb::new(brightness, brightness, brightness));

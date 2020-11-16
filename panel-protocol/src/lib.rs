@@ -32,6 +32,8 @@ pub const MAX_SERIAL_MESSAGE_LEN: usize = 256;
 pub const MAX_COMMAND_LEN: usize = 8;
 pub const MAX_REPORT_LEN: usize = 256;
 pub const MAX_DEBUG_MSG_LEN: usize = MAX_REPORT_LEN - 2;
+pub const MAX_REPORT_QUEUE_LEN: usize = 6;
+pub const MAX_COMMAND_QUEUE_LEN: usize = 6;
 
 impl Command {
     pub fn try_from(buf: &[u8]) -> Result<Option<(Command, usize)>, ()> {
@@ -165,16 +167,23 @@ impl ReportReader {
         Self { buf: ArrayVec::new() }
     }
 
-    pub fn process_byte(&mut self, byte: u8) -> Result<Option<Report>, Error> {
-        self.buf.try_push(byte).map_err(|_| Error::BufferFull)?;
-        match Report::try_from(&self.buf[..]) {
-            Ok(Some((command, bytes_read))) => {
-                self.buf.drain(0..bytes_read);
-                Ok(Some(command))
-            },
-            Err(_) => Err(Error::MalformedMessage),
-            Ok(None) => Ok(None),
+    pub fn process_bytes(&mut self, bytes: &[u8]) -> Result<ArrayVec<[Report; MAX_REPORT_QUEUE_LEN]>, Error> {
+        self.buf.try_extend_from_slice(bytes).map_err(|_| Error::BufferFull)?;
+
+        let mut output = ArrayVec::new();
+
+        loop {
+            match Report::try_from(&self.buf[..]) {
+                Ok(Some((report, bytes_read))) => {
+                    self.buf.drain(0..bytes_read);
+                    output.push(report);
+                }
+                Err(_) => return Err(Error::MalformedMessage),
+                Ok(None) => break,
+            }
         }
+
+        Ok(output)
     }
 }
 
@@ -193,16 +202,23 @@ impl CommandReader {
         Self { buf: ArrayVec::new() }
     }
 
-    pub fn process_byte(&mut self, byte: u8) -> Result<Option<Command>, Error> {
-        self.buf.try_push(byte).map_err(|_| Error::BufferFull)?;
-        match Command::try_from(&self.buf[..]) {
-            Ok(Some((command, bytes_read))) => {
-                self.buf.drain(0..bytes_read);
-                Ok(Some(command))
-            },
-            Err(_) => Err(Error::MalformedMessage),
-            Ok(None) => Ok(None),
+    pub fn process_bytes(&mut self, bytes: &[u8]) -> Result<ArrayVec<[Command; MAX_COMMAND_QUEUE_LEN]>, Error> {
+        self.buf.try_extend_from_slice(bytes).map_err(|_| Error::BufferFull)?;
+
+        let mut output = ArrayVec::new();
+
+        loop {
+            match Command::try_from(&self.buf[..]) {
+                Ok(Some((command, bytes_read))) => {
+                    self.buf.drain(0..bytes_read);
+                    output.push(command);
+                }
+                Err(_) => return Err(Error::MalformedMessage),
+                Ok(None) => break,
+            }
         }
+
+        Ok(output)
     }
 }
 
@@ -267,15 +283,9 @@ mod tests {
         }
 
         let mut protocol = ReportReader::new();
+        let report_output = protocol.process_bytes(&bytes).unwrap();
 
-        let mut deserialized: ArrayVec<[Report; 6]> = ArrayVec::new();
-        for b in bytes {
-            if let Some(report) = protocol.process_byte(b).unwrap() {
-                deserialized.push(report);
-            }
-        }
-
-        assert_eq!(&deserialized[..], &reports[..]);
+        assert_eq!(&report_output[..], &reports[..]);
     }
 
     #[test]
@@ -293,14 +303,8 @@ mod tests {
         }
 
         let mut protocol = CommandReader::new();
+        let command_output = protocol.process_bytes(&bytes).unwrap();
 
-        let mut deserialized: ArrayVec<[Command; 5]> = ArrayVec::new();
-        for b in bytes {
-            if let Some(command) = protocol.process_byte(b).unwrap() {
-                deserialized.push(command);
-            }
-        }
-
-        assert_eq!(&deserialized[..], &commands[..]);
+        assert_eq!(&command_output[..], &commands[..]);
     }
 }

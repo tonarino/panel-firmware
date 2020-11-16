@@ -1,13 +1,10 @@
 use stm32f1xx_hal as hal;
 
 use hal::{
-    afio,
-    prelude::*,
-    rcc,
-    serial::{self, Serial},
-    stm32,
+    serial::{self},
     usb::{Peripheral, UsbBus},
 };
+use panel_protocol::{ArrayVec, MAX_COMMAND_LEN, MAX_COMMAND_QUEUE_LEN};
 pub use panel_protocol::{Command, CommandReader, Report};
 use usb_device::{device::UsbDevice, UsbError};
 use usbd_serial::SerialPort;
@@ -41,22 +38,15 @@ impl From<panel_protocol::Error> for Error {
     }
 }
 
-pub struct SerialProtocol<'a, PINS> {
+pub struct SerialProtocol<'a> {
     protocol: CommandReader,
-    _serial: Serial<stm32::USART1, PINS>,
-
     usb_device: UsbDevice<'a, UsbBus<Peripheral>>,
     usb_serial_device: SerialPort<'a, UsbBus<Peripheral>>,
-    read_buf: [u8; 64],
+    read_buf: [u8; MAX_COMMAND_LEN],
 }
 
-impl<'a, PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<'a, PINS> {
+impl<'a> SerialProtocol<'a> {
     pub fn new(
-        usart1: stm32::USART1,
-        usart_pins: PINS,
-        afio: &mut afio::Parts,
-        apb: &mut rcc::APB2,
-        clocks: rcc::Clocks,
         usb_device: usb_device::device::UsbDevice<
             'a,
             stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>,
@@ -66,49 +56,27 @@ impl<'a, PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<'a, PINS
             stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>,
         >,
     ) -> Self {
-        let serial_config = serial::Config::default().baudrate(115200.bps());
-        let mapr = &mut afio.mapr;
-        let serial = serial::Serial::usart1(usart1, usart_pins, mapr, serial_config, clocks, apb);
-
         Self {
             protocol: CommandReader::new(),
-            _serial: serial,
             usb_device,
             usb_serial_device,
-            read_buf: [0u8; 64],
+            read_buf: [0u8; MAX_COMMAND_LEN],
         }
     }
 
     /// Check to see if a new command from host is available
-    pub fn poll(&mut self) -> Result<Option<Command>, Error> {
+    pub fn poll(&mut self) -> Result<ArrayVec<[Command; MAX_COMMAND_QUEUE_LEN]>, Error> {
         self.usb_device.poll(&mut [&mut self.usb_serial_device]);
 
-        match self.usb_serial_device.read(&mut self.read_buf) {
+        match self.usb_serial_device.read(&mut self.read_buf[..]) {
             Ok(count) if count > 0 => {
-                for byte in &self.read_buf[..count] {
-                    if let Some(command) = self.protocol.process_byte(*byte)? {
-                        return Ok(Some(command));
-                    }
-                }
-
-                Ok(None)
+                let commands = self.protocol.process_bytes(&self.read_buf[..count])?;
+                Ok(commands)
             },
-            Ok(_) => Ok(None),
-            Err(UsbError::WouldBlock) => Ok(None),
+            Ok(_) => Ok(ArrayVec::new()),
+            Err(UsbError::WouldBlock) => Ok(ArrayVec::new()),
             Err(e) => Err(e.into()),
         }
-
-        // loop {
-        //     match self.serial.read() {
-        //         Ok(byte) => {
-        //             if let Some(command) = self.protocol.process_byte(byte)? {
-        //                 break Ok(Some(command));
-        //             }
-        //         },
-        //         Err(nb::Error::WouldBlock) => break Ok(None),
-        //         Err(nb::Error::Other(e)) => break Err(e.into()),
-        //     }
-        // }
     }
 
     /// Sends a new report to the host, blocks until fully written or error occurs.
@@ -126,11 +94,6 @@ impl<'a, PINS: serial::Pins<stm32f1xx_hal::pac::USART1>> SerialProtocol<'a, PINS
             }
         }
 
-        // for byte in report_bytes.into_iter() {
-        //     // We can unwrap here because serial.write() returns an
-        //     // Infallible error.
-        //     block!(self.serial.write(byte)).unwrap();
-        // }
         Ok(())
     }
 }
