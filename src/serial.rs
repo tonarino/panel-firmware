@@ -9,12 +9,16 @@ pub use panel_protocol::{Command, CommandReader, Report};
 use usb_device::{device::UsbDevice, UsbError};
 use usbd_serial::SerialPort;
 
+type Stm32F1UsbDevice = stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>;
+
 #[derive(Debug)]
 pub enum Error {
     Serial(hal::serial::Error),
     UsbError(UsbError),
     BufferFull,
     MalformedMessage,
+    CommandQueueFull,
+    ReportQueueFull,
 }
 
 impl From<serial::Error> for Error {
@@ -34,6 +38,8 @@ impl From<panel_protocol::Error> for Error {
         match e {
             panel_protocol::Error::BufferFull => Error::BufferFull,
             panel_protocol::Error::MalformedMessage => Error::MalformedMessage,
+            panel_protocol::Error::CommandQueueFull => Error::CommandQueueFull,
+            panel_protocol::Error::ReportQueueFull => Error::ReportQueueFull,
         }
     }
 }
@@ -47,14 +53,8 @@ pub struct SerialProtocol<'a> {
 
 impl<'a> SerialProtocol<'a> {
     pub fn new(
-        usb_device: usb_device::device::UsbDevice<
-            'a,
-            stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>,
-        >,
-        usb_serial_device: usbd_serial::SerialPort<
-            'a,
-            stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>,
-        >,
+        usb_device: usb_device::device::UsbDevice<'a, Stm32F1UsbDevice>,
+        usb_serial_device: usbd_serial::SerialPort<'a, Stm32F1UsbDevice>,
     ) -> Self {
         Self {
             protocol: CommandReader::new(),
@@ -73,8 +73,7 @@ impl<'a> SerialProtocol<'a> {
                 let commands = self.protocol.process_bytes(&self.read_buf[..count])?;
                 Ok(commands)
             },
-            Ok(_) => Ok(ArrayVec::new()),
-            Err(UsbError::WouldBlock) => Ok(ArrayVec::new()),
+            Ok(_) | Err(UsbError::WouldBlock) => Ok(ArrayVec::new()),
             Err(e) => Err(e.into()),
         }
     }

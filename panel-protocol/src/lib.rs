@@ -13,6 +13,8 @@ pub enum Command {
 pub enum Error {
     BufferFull,
     MalformedMessage,
+    CommandQueueFull,
+    ReportQueueFull,
 }
 
 #[cfg(feature = "std")]
@@ -176,7 +178,11 @@ impl ReportReader {
             match Report::try_from(&self.buf[..]) {
                 Ok(Some((report, bytes_read))) => {
                     self.buf.drain(0..bytes_read);
-                    output.push(report);
+                    if output.len() < MAX_REPORT_QUEUE_LEN {
+                        output.push(report);
+                    } else {
+                        return Err(Error::ReportQueueFull);
+                    }
                 }
                 Err(_) => return Err(Error::MalformedMessage),
                 Ok(None) => break,
@@ -211,7 +217,12 @@ impl CommandReader {
             match Command::try_from(&self.buf[..]) {
                 Ok(Some((command, bytes_read))) => {
                     self.buf.drain(0..bytes_read);
-                    output.push(command);
+
+                    if output.len() < MAX_COMMAND_QUEUE_LEN {
+                        output.push(command);
+                    } else {
+                        return Err(Error::CommandQueueFull);
+                    }
                 }
                 Err(_) => return Err(Error::MalformedMessage),
                 Ok(None) => break,

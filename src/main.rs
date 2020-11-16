@@ -41,7 +41,15 @@ fn main() -> ! {
     // RCC = Reset and Clock Control
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
-    let clocks = rcc.cfgr.use_hse(8.mhz()).sysclk(48.mhz()).pclk1(24.mhz()).freeze(&mut flash.acr);
+
+    // The various system clocks need to be configured to particular values
+    // to work with USB - we'll set them up here.
+    let clocks = rcc
+        .cfgr
+        .use_hse(8.mhz()) // Use the High Speed External 8MHz crystal
+        .sysclk(48.mhz()) // The main system clock will be 48MHz
+        .pclk1(24.mhz())  // Use 24MHz for the APB1 (Advanced Peripheral Bus 1)
+        .freeze(&mut flash.acr);
 
     assert!(clocks.usbclk_valid());
 
@@ -69,8 +77,8 @@ fn main() -> ! {
 
     let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
         .manufacturer("tonari")
-        .product("tonari hardware controller")
-        .serial_number("12345")
+        .product("tonari dashboard controller")
+        .serial_number("tonari-dashboard-controller-v1")
         .device_class(USB_CLASS_CDC)
         .build();
 
@@ -162,6 +170,7 @@ fn main() -> ! {
             }
         }
 
+        // TODO(bschwind) - Report any poll errors back to the USB host if possible.
         for command in protocol.poll().unwrap() {
             match command {
                 Command::Brightness { target, value } => match target {
