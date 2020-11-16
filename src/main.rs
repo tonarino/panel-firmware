@@ -19,7 +19,10 @@ use hal::{
     qei::QeiOptions,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi, Spi1NoRemap},
     timer::{Tim2NoRemap, Tim3PartialRemap, Timer},
+    usb::{Peripheral, UsbBus},
 };
+use usb_device::device::{UsbDeviceBuilder, UsbVidPid};
+use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
 mod button;
 mod counter;
@@ -38,10 +41,17 @@ fn main() -> ! {
     // RCC = Reset and Clock Control
     let mut flash = dp.FLASH.constrain();
     let mut rcc = dp.RCC.constrain();
+
+    // The various system clocks need to be configured to particular values
+    // to work with USB - we'll set them up here.
     let clocks = rcc
         .cfgr
-        .sysclk(32.mhz()) // Needed for SPI to work properly
+        .use_hse(8.mhz()) // Use the High Speed External 8MHz crystal
+        .sysclk(48.mhz()) // The main system clock will be 48MHz
+        .pclk1(24.mhz())  // Use 24MHz for the APB1 (Advanced Peripheral Bus 1)
         .freeze(&mut flash.acr);
+
+    assert!(clocks.usbclk_valid());
 
     // Needed in order for MonoTimer to work properly
     cp.DCB.enable_trace();
@@ -56,9 +66,23 @@ fn main() -> ! {
     // Set up the LED (B12).
     let mut led = gpiob.pb12.into_push_pull_output(&mut gpiob.crh);
 
-    // Set up serial communication on pins A9 (Tx) and A10 (Rx), with 115200 baud.
-    let usart_pins = (gpioa.pa9.into_alternate_push_pull(&mut gpioa.crh), gpioa.pa10);
-    let mut protocol = SerialProtocol::new(dp.USART1, usart_pins, &mut afio, &mut rcc.apb2, clocks);
+    // Set up USB communications
+    let usb_pin_d_plus = gpioa.pa12;
+    let usb_pin_d_minus = gpioa.pa11;
+
+    let usb = Peripheral { usb: dp.USB, pin_dm: usb_pin_d_minus, pin_dp: usb_pin_d_plus };
+
+    let usb_bus = UsbBus::new(usb);
+    let serial = SerialPort::new(&usb_bus);
+
+    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("tonari")
+        .product("tonari dashboard controller")
+        .serial_number("tonari-dashboard-controller-v1")
+        .device_class(USB_CLASS_CDC)
+        .build();
+
+    let mut protocol = SerialProtocol::new(usb_dev, serial);
 
     // Disable JTAG so that we can use the pin PB4 for the timer
     let (_pa15, _pb3, pb4) = afio.mapr.disable_jtag(gpioa.pa15, gpiob.pb3, gpiob.pb4);
@@ -68,7 +92,7 @@ fn main() -> ! {
     let spi_pins = (NoSck, NoMiso, mosi_pin);
     let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
 
-    let spi = Spi::<_, Spi1NoRemap, _>::spi1(
+    let spi = Spi::<_, Spi1NoRemap, _, u8>::spi1(
         dp.SPI1,
         spi_pins,
         &mut afio.mapr,
@@ -121,7 +145,7 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa3.into_pull_up_input(&mut gpioa.crl);
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
-    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, clocks);
+    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, cp.DCB, clocks);
 
     loop {
         match encoder_button.poll() {
@@ -146,18 +170,21 @@ fn main() -> ! {
             }
         }
 
-        match protocol.poll().unwrap() {
-            Some(Command::Brightness { target, value }) => match target {
-                0 => front_light.set_brightness(value),
-                1 => back_light.set_brightness(value),
+        // TODO(bschwind) - Report any poll errors back to the USB host if possible.
+        for command in protocol.poll().unwrap() {
+            match command {
+                Command::Brightness { target, value } => match target {
+                    0 => front_light.set_brightness(value),
+                    1 => back_light.set_brightness(value),
+                    _ => {},
+                },
+                Command::Temperature { target, value } => match target {
+                    0 => front_light.set_color_temperature(value),
+                    1 => back_light.set_color_temperature(value),
+                    _ => {},
+                },
                 _ => {},
-            },
-            Some(Command::Temperature { target, value }) => match target {
-                0 => front_light.set_color_temperature(value),
-                1 => back_light.set_color_temperature(value),
-                _ => {},
-            },
-            _ => {},
+            }
         }
     }
 }
