@@ -59,7 +59,7 @@ fn main() -> ! {
     let mut led = gpiob.pb12.into_push_pull_output(&mut gpiob.crh);
 
     // Set up USB communications
-    let usb_pin_d_plus = gpioa.pa12; //.into_push_pull_output(&mut gpioa.crh);
+    let usb_pin_d_plus = gpioa.pa12;
     let usb_pin_d_minus = gpioa.pa11;
 
     let usb = Peripheral { usb: dp.USB, pin_dm: usb_pin_d_minus, pin_dp: usb_pin_d_plus };
