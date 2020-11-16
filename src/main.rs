@@ -139,8 +139,6 @@ fn main() -> ! {
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, cp.DWT, cp.DCB, clocks);
 
-    let mut brightness = 255;
-
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Pressed) => {
@@ -167,12 +165,7 @@ fn main() -> ! {
         for command in protocol.poll().unwrap() {
             match command {
                 Command::Brightness { target, value } => match target {
-                    0 => {
-                        front_light.set_brightness(value);
-
-                        let factor = ((value as f32 / u16::MAX as f32) * 255.0) as u8;
-                        brightness = factor;
-                    },
+                    0 => front_light.set_brightness(value),
                     1 => back_light.set_brightness(value),
                     _ => {},
                 },
@@ -184,7 +177,5 @@ fn main() -> ! {
                 _ => {},
             }
         }
-
-        led_strip.set_all(Rgb::new(brightness, brightness, brightness));
     }
 }
