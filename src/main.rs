@@ -159,6 +159,9 @@ fn main() -> ! {
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
 
+    let mut led_color = (0u8, 0u8, 0u8);
+    let mut led_pulse = false;
+
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Pressed) => {
@@ -196,15 +199,18 @@ fn main() -> ! {
                     _ => {},
                 },
                 Command::Led { r, g, b, pulse } => {
-                    let intensity = if pulse { pulser.intensity() } else { 1.0 };
-                    led_strip.set_all(Rgb::new(
-                        (r as f32 * intensity) as u8,
-                        (g as f32 * intensity) as u8,
-                        (b as f32 * intensity) as u8,
-                    ));
+                    led_color = (r, g, b);
+                    led_pulse = pulse;
                 },
                 _ => {},
             }
         }
+
+        let intensity = if led_pulse { pulser.intensity() } else { 1.0 };
+        led_strip.set_all(Rgb::new(
+            (led_color.0 as f32 * intensity) as u8,
+            (led_color.1 as f32 * intensity) as u8,
+            (led_color.2 as f32 * intensity) as u8,
+        ));
     }
 }
