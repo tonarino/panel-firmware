@@ -138,7 +138,7 @@ checksum = "546c37ac5d9e56f55e73b677106873d9d9f5190605e41a856503623648488cae"
 [[package]]
 name = "panel-protocol"
 version = "0.1.0"
-source = "git+https://github.com/tonarino/panel-protocol.git?rev=76a27711087e76df8ed1d7a69e0176017179db0e#76a27711087e76df8ed1d7a69e0176017179db0e"
+source = "git+https://github.com/tonarino/panel-protocol.git?rev=0.1#54395630c051be804dd1917ea1a5bb4b4b110cef"
 dependencies = [
  "arrayvec",
 ]

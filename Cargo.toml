@@ -14,6 +14,6 @@ cortex-m = "0.6"
 cortex-m-rt = "0.6"
 panic-halt = "0.2"
 nb = "1"
-panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", rev = "76a27711087e76df8ed1d7a69e0176017179db0e" }
+panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", rev = "0.1" }
 usb-device = "0.2"
 usbd-serial = "0.1"
