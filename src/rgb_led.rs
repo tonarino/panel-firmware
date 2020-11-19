@@ -92,19 +92,15 @@ impl From<Instant> for U64Instant {
     fn from(instant: Instant) -> Self {
         let elapsed = instant.elapsed();
 
-        Self {
-            elapsed: elapsed as u64,
-            last_elapsed: elapsed,
-            instant, 
-        }
+        Self { elapsed: elapsed as u64, last_elapsed: elapsed, instant }
     }
 }
 
 impl U64Instant {
     fn elapsed(&mut self) -> u64 {
-        let mut diff = self.instant.elapsed() as i32 - self.last_elapsed as i32;
+        let mut diff = self.instant.elapsed() as i64 - self.last_elapsed as i64;
         if diff < 0 {
-            diff += u32::MAX as i32 + 1;
+            diff += u32::MAX as i64 + 1;
         }
 
         self.elapsed += diff as u64;
