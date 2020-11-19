@@ -115,7 +115,7 @@ fn main() -> ! {
     let mut led_strip = LedStrip::new(spi);
 
     let timer = MonoTimer::new(cp.DWT, cp.DCB, clocks);
-    let pulser = Pulser::new(700, &timer);
+    let mut pulser = Pulser::new(700, &timer);
 
     // PWM Setup
     // https://docs.rs/stm32f1xx-hal/0.6.1/stm32f1xx_hal/timer/index.html

@@ -79,22 +79,53 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
     }
 }
 
-#[allow(dead_code)]
-pub struct Pulser {
+/// U64Instant::elapsed() tries to correct the u32 overflow of the underlying Instant. It is
+/// supposed to be accurate as long as the function is called frequently enough i.e. at least
+/// once per 1 minute 29 seconds.
+struct U64Instant {
+    elapsed: u64,
+    last_elapsed: u32,
     instant: Instant,
+}
+
+impl From<Instant> for U64Instant {
+    fn from(instant: Instant) -> Self {
+        let elapsed = instant.elapsed();
+
+        Self {
+            elapsed: elapsed as u64,
+            last_elapsed: elapsed,
+            instant, 
+        }
+    }
+}
+
+impl U64Instant {
+    fn elapsed(&mut self) -> u64 {
+        let mut diff = self.instant.elapsed() as i32 - self.last_elapsed as i32;
+        if diff < 0 {
+            diff += u32::MAX as i32 + 1;
+        }
+
+        self.elapsed += diff as u64;
+        self.elapsed
+    }
+}
+
+pub struct Pulser {
+    instant: U64Instant,
     interval_ticks: f32,
 }
 
 impl Pulser {
     pub fn new(interval_ms: u32, timer: &MonoTimer) -> Self {
-        let instant = timer.now();
+        let instant = timer.now().into();
         let interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
 
         Self { instant, interval_ticks }
     }
 
-    #[allow(dead_code)]
-    pub fn intensity(&self) -> f32 {
+    pub fn intensity(&mut self) -> f32 {
         let intervals = self.instant.elapsed() as f32 / self.interval_ticks;
         let pulse = (libm::sinf(intervals) + 1.0) * 0.5;
         let skip_one = if libm::sinf((intervals + PI / 2.0) / 2.0) >= 0.0 { 1.0 } else { 0.0 };
