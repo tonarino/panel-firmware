@@ -6,3 +6,6 @@ flash:
 
 monitor:
 	serial-monitor -b 115200 -p $(serial-port)
+
+
+# dfu-util -D stm32-test.bin -d "0483:df11" -a 0 -s 0x08000000

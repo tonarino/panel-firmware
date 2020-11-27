@@ -1,12 +1,15 @@
 use core::convert::Infallible;
-use stm32f1xx_hal as hal;
+use stm32f4xx_hal as hal;
 
+use cortex_m::peripheral::{DCB, DWT};
 use embedded_hal::digital::v2::InputPin;
-use hal::time::{Instant, MonoTimer};
+use hal::rcc::Clocks;
 
 pub struct Button<T: InputPin> {
     pin: Debouncer<T>,
-    timer: MonoTimer,
+    // timer: MonoTimer,
+    // stopwatch: StopWatch<'a>,
+    dwt: DWT,
     button_state: ButtonState,
     long_press_timeout_ticks: u32,
 }
@@ -27,17 +30,28 @@ pub enum ButtonEvent {
 
 enum ButtonState {
     Released,
-    Pressed(Instant),
+    Pressed(u32), // clock ticks
     LongPressed,
 }
 
+// TODO(bschwind) - Clean up the timer logic in this struct
 impl<T: InputPin<Error = Infallible>> Button<T> {
-    pub fn new(pin: Debouncer<T>, long_press_timeout_ms: u32, timer: MonoTimer) -> Self {
+    pub fn new(
+        pin: Debouncer<T>,
+        long_press_timeout_ms: u32,
+        mut dwt: DWT,
+        dcb: DCB,
+        clocks: Clocks,
+    ) -> Self {
+        // let timer = MonoTimer::new(dwt, dcb, clocks);
+        dwt.enable_cycle_counter();
+        let timer_clock = clocks.hclk();
+        // let stopwatch = dwt.stopwatch();
         let button_state = ButtonState::Released;
         let long_press_timeout_ticks =
-            (timer.frequency().0 as f32 * (long_press_timeout_ms as f32 / 1000.0)) as u32;
+            (timer_clock.0 as f32 * (long_press_timeout_ms as f32 / 1000.0)) as u32;
 
-        Self { pin, timer, button_state, long_press_timeout_ticks }
+        Self { pin, dwt, button_state, long_press_timeout_ticks }
     }
 
     pub fn is_pressed(&self) -> bool {
@@ -50,16 +64,20 @@ impl<T: InputPin<Error = Infallible>> Button<T> {
         match self.button_state {
             ButtonState::Released => {
                 if self.pin.is_pressed() {
-                    let now = self.timer.now();
+                    // let now = self.timer.now();
+                    let now = DWT::get_cycle_count();
                     self.button_state = ButtonState::Pressed(now);
                     return Some(ButtonEvent::Pressed);
                 }
             },
             ButtonState::Pressed(press_start) => {
+                let now = DWT::get_cycle_count();
+                let elapsed = now.wrapping_sub(press_start);
+
                 if !self.pin.is_pressed() {
                     self.button_state = ButtonState::Released;
                     return Some(ButtonEvent::ShortRelease);
-                } else if press_start.elapsed() > self.long_press_timeout_ticks {
+                } else if elapsed > self.long_press_timeout_ticks {
                     self.button_state = ButtonState::LongPressed;
                     return Some(ButtonEvent::LongPress);
                 }
