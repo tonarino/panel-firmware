@@ -5,7 +5,10 @@ authors = ["Brian Schwind <brianmschwind@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-stm32f4xx-hal = {version = "0.8", features = ["rt", "stm32f411", "usb_fs"] }
+
+# Update after https://github.com/stm32-rs/stm32f4xx-hal/pull/238
+# stm32f4xx-hal = {version = "0.8", features = ["rt", "stm32f411", "usb_fs"] }
+stm32f4xx-hal = { git = "https://github.com/bschwind/stm32f4xx-hal", version = "0.8", features = ["rt", "stm32f411", "usb_fs"], rev = "9839b32cc50c2def1f3be85dc4c2bb1163a2083c" }
 embedded-hal = "0.2"
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
