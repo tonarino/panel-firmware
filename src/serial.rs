@@ -4,7 +4,7 @@ use hal::{
     serial::{self},
     usb::{Peripheral, UsbBus},
 };
-use panel_protocol::{ArrayVec, MAX_COMMAND_LEN, MAX_COMMAND_QUEUE_LEN};
+use panel_protocol::{ArrayString, ArrayVec, MAX_COMMAND_LEN, MAX_COMMAND_QUEUE_LEN};
 pub use panel_protocol::{Command, CommandReader, Report};
 use usb_device::{device::UsbDevice, UsbError};
 use usbd_serial::SerialPort;
@@ -94,5 +94,10 @@ impl<'a> SerialProtocol<'a> {
         }
 
         Ok(())
+    }
+
+    pub fn debug(&mut self, message: &str) {
+        let report = Report::Debug { message: ArrayString::from(message).unwrap() };
+        let _ = self.report(report);
     }
 }
