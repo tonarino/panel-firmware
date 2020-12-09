@@ -1,5 +1,6 @@
 #![no_main]
 #![no_std]
+
 use panic_halt as _; // panic handler
 
 use stm32f1xx_hal as hal;
@@ -11,6 +12,7 @@ use crate::{
     rgb_led::{LedStrip, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
+use cortex_m::asm::delay;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 use hal::{
@@ -67,8 +69,15 @@ fn main() -> ! {
     let mut led = gpiob.pb12.into_push_pull_output(&mut gpiob.crh);
 
     // Set up USB communications
-    let usb_pin_d_plus = gpioa.pa12;
     let usb_pin_d_minus = gpioa.pa11;
+
+    // Pull the USB D+ pin low to indicate to the USB host that this device
+    // is resetting (sends a RESET condition on the USB bus).
+    let mut usb_pin_d_plus = gpioa.pa12.into_push_pull_output(&mut gpioa.crh);
+    usb_pin_d_plus.set_low().unwrap();
+    delay(clocks.sysclk().0 / 100);
+
+    let usb_pin_d_plus = usb_pin_d_plus.into_floating_input(&mut gpioa.crh);
 
     let usb = Peripheral { usb: dp.USB, pin_dm: usb_pin_d_minus, pin_dp: usb_pin_d_plus };
 
