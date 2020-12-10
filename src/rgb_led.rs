@@ -84,7 +84,7 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
 /// once per 1 minute 29 seconds.
 struct U64Instant {
     elapsed: u64,
-    last_elapsed: u32,
+    last_elapsed_u32: u32,
     instant: Instant,
 }
 
@@ -92,17 +92,19 @@ impl From<Instant> for U64Instant {
     fn from(instant: Instant) -> Self {
         let elapsed = instant.elapsed();
 
-        Self { elapsed: elapsed as u64, last_elapsed: elapsed, instant }
+        Self { elapsed: elapsed as u64, last_elapsed_u32: elapsed, instant }
     }
 }
 
 impl U64Instant {
     fn elapsed(&mut self) -> u64 {
-        let mut diff = self.instant.elapsed() as i64 - self.last_elapsed as i64;
+        let elapsed_u32 = self.instant.elapsed();
+        let mut diff = elapsed_u32 as i64 - self.last_elapsed_u32 as i64;
         if diff < 0 {
             diff += u32::MAX as i64 + 1;
         }
 
+        self.last_elapsed_u32 = elapsed_u32;
         self.elapsed += diff as u64;
         self.elapsed
     }
