@@ -17,3 +17,4 @@ nb = "1"
 panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", rev = "0.2" }
 usb-device = "0.2"
 usbd-serial = "0.1"
+libm = "0.2"
