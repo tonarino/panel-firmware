@@ -159,7 +159,7 @@ fn main() -> ! {
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
 
-    let mut led_color = (0u8, 0u8, 0u8);
+    let mut led_color = (0u8, 30u8, 255u8);
     let mut led_pulse = false;
 
     loop {
