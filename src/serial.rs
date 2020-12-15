@@ -96,6 +96,7 @@ impl<'a> SerialProtocol<'a> {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn debug(&mut self, message: &str) {
         let report = Report::Debug { message: ArrayString::from(message).unwrap() };
         let _ = self.report(report);
