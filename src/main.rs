@@ -90,11 +90,11 @@ fn main() -> ! {
     let mut protocol = SerialProtocol::new(usb_dev, serial);
 
     // SPI Setup (for WS8212b RGB LEDs)
-    let mosi_pin = gpioa.pa7.into_alternate_af5();
+    let mosi_pin = gpiob.pb15.into_alternate_af5();
     let spi_pins = (NoSck, NoMiso, mosi_pin);
     let spi_mode = SpiMode { polarity: Polarity::IdleLow, phase: Phase::CaptureOnFirstTransition };
 
-    let spi = Spi::spi1(dp.SPI1, spi_pins, spi_mode, 2250.khz().into(), clocks);
+    let spi = Spi::spi2(dp.SPI2, spi_pins, spi_mode, 2250.khz().into(), clocks);
 
     let mut led_strip = LedStrip::new(spi);
 
@@ -104,22 +104,22 @@ fn main() -> ! {
     // PWM Setup
     let pwm_freq = 1.khz();
 
-    let timer3_pwm_pins = (
+    let back_light_pwm_pins = (
+        gpioa.pa0.into_alternate_af2(),
+        gpioa.pa1.into_alternate_af2(),
+        gpioa.pa2.into_alternate_af2(),
+        gpioa.pa3.into_alternate_af2(),
+    );
+
+    let front_light_pwm_pins = (
         gpioa.pa6.into_alternate_af2(),
-        gpiob.pb5.into_alternate_af2(),
+        gpioa.pa7.into_alternate_af2(),
         gpiob.pb0.into_alternate_af2(),
         gpiob.pb1.into_alternate_af2(),
     );
 
-    let timer4_pwm_pins = (
-        gpiob.pb6.into_alternate_af2(),
-        gpiob.pb7.into_alternate_af2(),
-        gpiob.pb8.into_alternate_af2(),
-        gpiob.pb9.into_alternate_af2(),
-    );
-
-    let (pwm1, pwm2, pwm3, pwm4) = pwm::tim3(dp.TIM3, timer3_pwm_pins, clocks, pwm_freq);
-    let (pwm5, pwm6, pwm7, pwm8) = pwm::tim4(dp.TIM4, timer4_pwm_pins, clocks, pwm_freq);
+    let (pwm1, pwm2, pwm3, pwm4) = pwm::tim5(dp.TIM5, back_light_pwm_pins, clocks, pwm_freq);
+    let (pwm5, pwm6, pwm7, pwm8) = pwm::tim3(dp.TIM3, front_light_pwm_pins, clocks, pwm_freq);
 
     // The overhead light closer to the screen.
     let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
@@ -127,14 +127,14 @@ fn main() -> ! {
     // The overhead light farther away from the screen.
     let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
 
-    // Connect a rotary encoder to pins A0 and A1.
-    let rotary_encoder_timer = dp.TIM2;
-    let rotary_encoder_pins = (gpioa.pa0.into_alternate_af1(), gpioa.pa1.into_alternate_af1());
-    let rotary_encoder = Qei::tim2(rotary_encoder_timer, rotary_encoder_pins);
+    // Connect a rotary encoder to pins A8 and A9.
+    let rotary_encoder_timer = dp.TIM1;
+    let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
+    let rotary_encoder = Qei::tim1(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
 
-    let button_pin = gpioa.pa3.into_pull_up_input();
+    let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
 
