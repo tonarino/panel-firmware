@@ -8,7 +8,7 @@ use nb::block;
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
 
 const LED_COUNT: usize = 2;
-const PI: f32 = 3.1415927410e+00;
+const PI: f32 = 3.141_592_7e0;
 
 pub struct LedStrip<F: FullDuplex<u8>> {
     spi_bus: F,
