@@ -161,10 +161,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "panic-halt"
-version = "0.2.0"
+name = "panic-reset"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
+checksum = "acee8535a38487c5c70d61ee87284710452cb3b265304463f20a0c5327a4a8a5"
+dependencies = [
+ "cortex-m",
+]
 
 [[package]]
 name = "proc-macro2"
@@ -236,7 +239,7 @@ dependencies = [
  "libm",
  "nb 1.0.0",
  "panel-protocol",
- "panic-halt",
+ "panic-reset",
  "stm32f4xx-hal",
  "usb-device",
  "usbd-serial",

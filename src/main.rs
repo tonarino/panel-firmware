@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-use panic_halt as _; // panic handler
+use panic_reset as _; // panic handler
 
 use stm32f4xx_hal as hal;
 
