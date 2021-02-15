@@ -12,7 +12,7 @@ use crate::{
     rgb_led::{LedStrip, Pulser, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
-use cortex_m::asm::delay;
+
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 use hal::{
@@ -22,6 +22,7 @@ use hal::{
     qei::Qei,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi},
     stm32,
+    timer::MonoTimer,
 };
 use usb_device::device::{UsbDeviceBuilder, UsbVidPid};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};

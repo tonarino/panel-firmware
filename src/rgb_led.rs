@@ -1,6 +1,8 @@
+use stm32f4xx_hal as hal;
+
 use embedded_hal::spi::FullDuplex;
+use hal::timer::{Instant, MonoTimer};
 use nb::block;
-use stm32f1xx_hal::time::{Instant, MonoTimer};
 
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
