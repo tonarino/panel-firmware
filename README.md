@@ -1,31 +1,35 @@
+# panel-firmware
+
+Microcontroller firmware for controlling the lights and volume dial for [tonari](https://tonari.no/).
+
+More info outlined here:
+
+[https://blog.tonari.no/rust-simple-hardware-project](https://blog.tonari.no/rust-simple-hardware-project)
+
 ## Dependencies
 
 * [cargo, rustc](https://rustup.rs)
-* `stm32flash` (`brew install stm32flash`, `apt install stm32flash`, etc.)
-* `serial-monitor` (`cargo install serial-monitor`)
+* `dfu-util` (`brew install dfu-util`, `apt install dfu-util`, etc.)
+* (Optional, for UART flashing) `stm32flash` (`brew install stm32flash`, `apt install stm32flash`, etc.)
+* (Optional, for UART flashing) `serial-monitor` (`cargo install serial-monitor`)
 
 
 ## Target STM32 Models
 
 The current firmware uses this model:
 ```
-STM32F
-103C8T6
+STM32F411RE
 ```
-[Board Info](https://stm32-base.org/boards/STM32F103C8T6-Black-Pill)
 
-Also supported if we swap in `stm32f4xx-hal` instead of `stm32f1xx-hal` and address a few small compile errors:
-```
-STM32F
-411CEU6
-```
+This firmware can also be debugged on a USB-C "black pill" board, linked here:
 [Board Info](https://stm32-base.org/boards/STM32F411CEU6-WeAct-Black-Pill-V2.0)
 
+The firmware also used to run on the cheaper STM32F103-based boards. Look in the commit history for working with that. It might be beneficial in the future to support both simultaneously and enable one or the other via feature flags.
 
 ## Steps
 
 ```
-rustup target add thumbv7m-none-eabi
+rustup target add thumbv7em-none-eabihf
 ```
 
 ## Workflow
@@ -42,6 +46,10 @@ make monitor
 
 ## Board Connection
 
+### USB DFU
+Simply connect the host computer to the STM32 dev board via a USB cable.
+
+### Serial Flashing
 Using a CP2102 (3.3v logic) or another USB-Serial converter, connect its `TX` to pin `A10` and its `RX` to pin `A9`.
 Also connect 3.3v from the CP2102 to the 3.3v pin on the STM32, and do the same for ground.
 If you try to power the STM32 from its USB port without this power connection, it won't work.
@@ -60,7 +68,7 @@ rustup component add llvm-tools-preview
 ### Create the BIN File
 
 ```
-cargo objcopy --release -- -O binary stm32-test.bin
+cargo objcopy --release -- -O binary panel-brain-firmware.bin
 ```
 
 ## Flash the BIN File
@@ -69,8 +77,16 @@ On the "black pill" board, hold down the `BOOT0` button, press and release `NRST
 
 Find your USB-UART converter path via a tool like `serial-monitor` or however you prefer. On MacOS it turned up as `/dev/cu.SLAB_USBtoUART` but results will vary.
 
+
+### USB DFU Flashing
+
 ```
-stm32flash -b 230400 -w stm32-test.bin -v /dev/cu.SLAB_USBtoUART
+dfu-util -D panel-brain-firmware.bin -d "0483:df11" -a 0 -s 0x08000000
+```
+
+### Serial UART Flashing
+```
+stm32flash -b 230400 -w panel-brain-firmware.bin -v /dev/cu.SLAB_USBtoUART
 ```
 
 ## Monitor Serial Output
