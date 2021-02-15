@@ -257,7 +257,7 @@ dependencies = [
 [[package]]
 name = "stm32f4xx-hal"
 version = "0.8.3"
-source = "git+https://github.com/bschwind/stm32f4xx-hal?rev=9839b32cc50c2def1f3be85dc4c2bb1163a2083c#9839b32cc50c2def1f3be85dc4c2bb1163a2083c"
+source = "git+https://github.com/bschwind/stm32f4xx-hal?rev=880b3cda5aa666f8ab4aa1330ac50fdfd8700288#880b3cda5aa666f8ab4aa1330ac50fdfd8700288"
 dependencies = [
  "bare-metal",
  "cast",
