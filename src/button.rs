@@ -1,8 +1,8 @@
 use core::convert::Infallible;
-use stm32f1xx_hal as hal;
+use stm32f4xx_hal as hal;
 
 use embedded_hal::digital::v2::InputPin;
-use hal::time::{Instant, MonoTimer};
+use hal::timer::{Instant, MonoTimer};
 
 pub struct Button<T: InputPin> {
     pin: Debouncer<T>,
@@ -124,10 +124,6 @@ impl<T: InputPin<Error = Infallible>> Debouncer<T> {
     }
 
     pub fn is_pressed(&self) -> bool {
-        match (&self.active_mode, self.output) {
-            (Active::High, true) => true,
-            (Active::Low, false) => true,
-            _ => false,
-        }
+        matches!((&self.active_mode, self.output), (Active::High, true) | (Active::Low, false))
     }
 }

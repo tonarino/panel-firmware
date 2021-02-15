@@ -1,15 +1,15 @@
-use stm32f1xx_hal as hal;
+use stm32f4xx_hal as hal;
 
 use hal::{
+    otg_fs::{UsbBus, USB},
     serial::{self},
-    usb::{Peripheral, UsbBus},
 };
 use panel_protocol::{ArrayString, ArrayVec, MAX_COMMAND_LEN, MAX_COMMAND_QUEUE_LEN};
 pub use panel_protocol::{Command, CommandReader, Report};
 use usb_device::{device::UsbDevice, UsbError};
 use usbd_serial::SerialPort;
 
-type Stm32F1UsbDevice = stm32f1xx_hal::usb::UsbBus<stm32f1xx_hal::usb::Peripheral>;
+type Stm32F4UsbDevice = stm32f4xx_hal::otg_fs::UsbBus<stm32f4xx_hal::otg_fs::USB>;
 
 #[derive(Debug)]
 pub enum Error {
@@ -46,15 +46,15 @@ impl From<panel_protocol::Error> for Error {
 
 pub struct SerialProtocol<'a> {
     protocol: CommandReader,
-    usb_device: UsbDevice<'a, UsbBus<Peripheral>>,
-    usb_serial_device: SerialPort<'a, UsbBus<Peripheral>>,
+    usb_device: UsbDevice<'a, UsbBus<USB>>,
+    usb_serial_device: SerialPort<'a, UsbBus<USB>>,
     read_buf: [u8; MAX_COMMAND_LEN],
 }
 
 impl<'a> SerialProtocol<'a> {
     pub fn new(
-        usb_device: usb_device::device::UsbDevice<'a, Stm32F1UsbDevice>,
-        usb_serial_device: usbd_serial::SerialPort<'a, Stm32F1UsbDevice>,
+        usb_device: usb_device::device::UsbDevice<'a, Stm32F4UsbDevice>,
+        usb_serial_device: usbd_serial::SerialPort<'a, Stm32F4UsbDevice>,
     ) -> Self {
         Self {
             protocol: CommandReader::new(),
