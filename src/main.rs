@@ -54,6 +54,7 @@ fn main() -> ! {
         .require_pll48clk()
         .freeze();
 
+    // TODO(bschwind) - Find or write an equivalent for this in stm32f4xx-hal
     // assert!(clocks.usbclk_valid());
 
     // Grab the GPIO banks we'll use.
