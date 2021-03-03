@@ -12,7 +12,7 @@ stm32f4xx-hal = { git = "https://github.com/bschwind/stm32f4xx-hal", version = "
 embedded-hal = "0.2"
 cortex-m = "0.6"
 cortex-m-rt = "0.6"
-panic-halt = "0.2"
+panic-reset = "0.1"
 nb = "1"
 panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", rev = "0.2" }
 usb-device = "0.2"
