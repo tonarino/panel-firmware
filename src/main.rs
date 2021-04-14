@@ -138,25 +138,21 @@ fn main() -> ! {
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
-    let mut encoder_button = Button::new(debounced_encoder_pin, 1000, timer);
+    let mut encoder_button = Button::new(debounced_encoder_pin);
 
     let mut led_color = (0u8, 30u8, 255u8);
     let mut led_pulse = false;
 
     loop {
         match encoder_button.poll() {
-            Some(ButtonEvent::Pressed) => {
+            Some(ButtonEvent::Press) => {
+                protocol.report(Report::Press).unwrap();
                 led.set_low().unwrap();
             },
-            Some(ButtonEvent::ShortRelease) => {
-                protocol.report(Report::Press).unwrap();
+            Some(ButtonEvent::Release) => {
+                protocol.report(Report::Release).unwrap();
                 led.set_high().unwrap();
             },
-            Some(ButtonEvent::LongPress) => {
-                protocol.report(Report::LongPress).unwrap();
-                led.set_high().unwrap();
-            },
-            Some(ButtonEvent::LongRelease) => {},
             _ => {},
         }
 
