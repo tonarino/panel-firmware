@@ -14,7 +14,7 @@ cortex-m = "0.6"
 cortex-m-rt = "0.6"
 panic-reset = "0.1"
 nb = "1"
-panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", branch = "report-simplify" }
+panel-protocol = { git = "https://github.com/tonarino/panel-protocol.git", rev = "0.3" }
 usb-device = "0.2"
 usbd-serial = "0.1"
 libm = "0.2"
