@@ -7,7 +7,7 @@ use nb::block;
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
 
-const LED_COUNT: usize = 2;
+const LED_COUNT: usize = 4;
 const PI: f32 = 3.141_592_7e0;
 
 pub struct LedStrip<F: FullDuplex<u8>> {
@@ -72,7 +72,10 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
     }
 
     fn flush(&mut self) {
-        for _ in 0..20 {
+        // TODO(bschwind) - 60 may not be optimal here, it's possible
+        // this number may need to be calculated. Lower numbers seemed
+        // to not be enough time for the LEDs to know the signal is "done".
+        for _ in 0..60 {
             let _ = block!({
                 let _ = self.spi_bus.send(0).map_err(|_| ());
                 self.spi_bus.read()

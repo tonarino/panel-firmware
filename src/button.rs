@@ -1,43 +1,29 @@
 use core::convert::Infallible;
-use stm32f4xx_hal as hal;
-
 use embedded_hal::digital::v2::InputPin;
-use hal::timer::{Instant, MonoTimer};
 
 pub struct Button<T: InputPin> {
     pin: Debouncer<T>,
-    timer: MonoTimer,
     button_state: ButtonState,
-    long_press_timeout_ticks: u32,
 }
 
 pub enum ButtonEvent {
     /// The button has just been pressed down.
-    Pressed,
+    Press,
 
-    /// The button was released before the "long press" timeout.
-    ShortRelease,
-
-    /// The button has been held for at least the "long press" timeout.
-    LongPress,
-
-    /// The button has been released after a "long press".
-    LongRelease,
+    /// The button was released.
+    Release,
 }
 
 enum ButtonState {
     Released,
-    Pressed(Instant),
-    LongPressed,
+    Pressed,
 }
 
 impl<T: InputPin<Error = Infallible>> Button<T> {
-    pub fn new(pin: Debouncer<T>, long_press_timeout_ms: u32, timer: MonoTimer) -> Self {
+    pub fn new(pin: Debouncer<T>) -> Self {
         let button_state = ButtonState::Released;
-        let long_press_timeout_ticks =
-            (timer.frequency().0 as f32 * (long_press_timeout_ms as f32 / 1000.0)) as u32;
 
-        Self { pin, timer, button_state, long_press_timeout_ticks }
+        Self { pin, button_state }
     }
 
     pub fn is_pressed(&self) -> bool {
@@ -50,24 +36,14 @@ impl<T: InputPin<Error = Infallible>> Button<T> {
         match self.button_state {
             ButtonState::Released => {
                 if self.pin.is_pressed() {
-                    let now = self.timer.now();
-                    self.button_state = ButtonState::Pressed(now);
-                    return Some(ButtonEvent::Pressed);
+                    self.button_state = ButtonState::Pressed;
+                    return Some(ButtonEvent::Press);
                 }
             },
-            ButtonState::Pressed(press_start) => {
+            ButtonState::Pressed => {
                 if !self.pin.is_pressed() {
                     self.button_state = ButtonState::Released;
-                    return Some(ButtonEvent::ShortRelease);
-                } else if press_start.elapsed() > self.long_press_timeout_ticks {
-                    self.button_state = ButtonState::LongPressed;
-                    return Some(ButtonEvent::LongPress);
-                }
-            },
-            ButtonState::LongPressed => {
-                if !self.pin.is_pressed() {
-                    self.button_state = ButtonState::Released;
-                    return Some(ButtonEvent::LongRelease);
+                    return Some(ButtonEvent::Release);
                 }
             },
         }
