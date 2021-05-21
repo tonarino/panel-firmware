@@ -6,12 +6,9 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
-
-# Update after https://github.com/stm32-rs/stm32f4xx-hal/pull/238
-# stm32f4xx-hal = {version = "0.8", features = ["rt", "stm32f411", "usb_fs"] }
-stm32f4xx-hal = { git = "https://github.com/bschwind/stm32f4xx-hal", version = "0.8", features = ["rt", "stm32f411", "usb_fs"], rev = "880b3cda5aa666f8ab4aa1330ac50fdfd8700288" }
+stm32f4xx-hal = { version = "0.9", features = ["rt", "stm32f411", "usb_fs"] }
 embedded-hal = "0.2"
-cortex-m = "0.6"
+cortex-m = "0.7"
 cortex-m-rt = "0.6"
 panic-reset = "0.1"
 nb = "1"
