@@ -55,6 +55,7 @@ fn enable_backup_domain(dp: &hal::stm32::Peripherals) {
     // Enable the power interface clock by setting the PWREN bits in the RCC_APB1ENR register
     rcc.apb1enr.write(|w| w.pwren().bit(true));
 
+    // Stall the pipeline to work around erratum 2.1.13 (DM00037591)
     cortex_m::asm::dsb();
 
     // Set the DBP bit in the Section 5.4.1 to enable access to the backup domain
@@ -65,7 +66,5 @@ fn enable_backup_domain(dp: &hal::stm32::Peripherals) {
 }
 
 fn disable_backup_domain(dp: &stm32::Peripherals) {
-    let pwr = &dp.PWR;
-
-    pwr.cr.write(|w| w.dbp().bit(false));
+    dp.PWR.cr.write(|w| w.dbp().bit(false));
 }
