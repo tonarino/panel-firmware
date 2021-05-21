@@ -40,6 +40,9 @@ fn main() -> ! {
     let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = stm32::Peripherals::take().expect("failed to get stm32 peripherals");
 
+    // This call needs to happen as early as possible in the firmware.
+    jump_to_bootloader_if_requested(&dp);
+
     // Take ownership over the raw devices and convert them into the corresponding
     // HAL structs.
     // RCC = Reset and Clock Control
@@ -64,6 +67,7 @@ fn main() -> ! {
 
     // Set up the LED (C13).
     let mut led = gpioc.pc13.into_push_pull_output();
+    led.set_high().unwrap();
 
     // Set up USB communications
     let usb_pin_d_plus = gpioa.pa12.into_alternate_af10();
@@ -132,7 +136,7 @@ fn main() -> ! {
     // Connect a rotary encoder to pins A8 and A9.
     let rotary_encoder_timer = dp.TIM1;
     let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
-    let rotary_encoder = Qei::tim1(rotary_encoder_timer, rotary_encoder_pins);
+    let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
 
@@ -142,6 +146,9 @@ fn main() -> ! {
 
     let mut led_color = (0u8, 30u8, 255u8);
     let mut led_pulse = false;
+
+    // Turn the LED on to indicate we've powered up successfully.
+    led.set_low().unwrap();
 
     loop {
         match encoder_button.poll() {
@@ -179,6 +186,10 @@ fn main() -> ! {
                     led_color = (r, g, b);
                     led_pulse = pulse;
                 },
+                Command::Bootload => {
+                    led.set_high().unwrap();
+                    request_bootloader();
+                },
                 _ => {},
             }
         }
@@ -191,3 +202,156 @@ fn main() -> ! {
         ));
     }
 }
+
+const MAGIC_BOOTLOADER_NUMBER: u32 = 131981;
+
+fn request_bootloader() -> ! {
+    let dp = unsafe { stm32::Peripherals::steal() };
+
+    enable_backup_domain(&dp);
+
+    let rtc = &dp.RTC;
+    let backup_register = &rtc.bkpr;
+
+    backup_register[0].write(|w| {
+        w.bkp().bits(MAGIC_BOOTLOADER_NUMBER)
+    });
+
+    cortex_m::asm::dsb();
+
+    disable_backup_domain(&dp);
+
+    cortex_m::peripheral::SCB::sys_reset();
+}
+
+fn enable_backup_domain(dp: &hal::stm32::Peripherals) {
+    let rtc = &dp.RTC;
+    let pwr = &dp.PWR;
+    let rcc = &dp.RCC;
+
+    // Enable the power interface clock by setting the PWREN bits in the RCC_APB1ENR register
+    rcc.apb1enr.write(|w| {
+        w.pwren().bit(true)
+    });
+
+    cortex_m::asm::dsb();
+
+    // Set the DBP bit in the Section 5.4.1 to enable access to the backup domain
+    pwr.cr.write(|w| {
+        w.dbp().bit(true)
+    });
+
+    // Select the RTC clock source
+    // if rcc.bdcr.read().lserdy().bit_is_clear() {
+    //     enable_lse(rcc, bypass);
+    // }
+
+    // Enable the RTC clock by programming the RTCEN [15] bit in the Section 7.3.20: RCC Backup domain control register (RCC_BDCR)
+    rcc.bdcr.write(|w| {
+        w.rtcen().bit(true)
+    });
+
+    // Disable write protect?
+    rtc.wpr.write(|w| {
+        unsafe { w.bits(0xCA) }
+    });
+
+    cortex_m::asm::dsb();
+
+    rtc.wpr.write(|w| {
+        unsafe { w.bits(0x53) }
+    });
+}
+
+fn disable_backup_domain(dp: &stm32::Peripherals) {
+    let pwr = &dp.PWR;
+
+    pwr.cr.write(|w| {
+        w.dbp().bit(false)
+    });
+}
+
+fn jump_to_bootloader_if_requested(dp: &stm32::Peripherals) {
+    let rtc = &dp.RTC;
+    let backup_register = &rtc.bkpr;
+
+    let magic_num: u32 = backup_register[0].read().bkp().bits();
+
+    if magic_num == MAGIC_BOOTLOADER_NUMBER {
+        enable_backup_domain(&dp);
+
+        backup_register[0].write(|w| {
+            w.bkp().bits(0u32)
+        });
+
+        disable_backup_domain(&dp);
+
+        unsafe {
+            cortex_m::asm::bootload(0x1FFF0000 as *const u32);
+        }
+    }
+}
+
+// fn bootloader() -> ! {
+//     // cortex_m::interrupt::disable();
+
+//     unsafe {
+//         let mut cp = cortex_m::Peripherals::steal();
+//         let dp = stm32::Peripherals::steal();
+
+//         // // Deinit the RCC
+//         let rcc = dp.RCC.constrain();
+//         let _clocks = rcc
+//             .cfgr
+//             .freeze();
+
+//         cortex_m::asm::dsb();
+
+//         // // Reset the SysTick timer
+//         cp.SYST.clear_current();
+
+//         cortex_m::asm::dsb();
+
+//         let rtc = dp.RTC;
+//         let backup_register = &rtc.bkpr;
+//         // 20 (32-bit) backup registers used to store 80 bytes
+//         // of user application data when VDD power is not present.
+//         backup_register[0].write(|w| {
+//             w.bkp().bits(MAGIC_BOOTLOADER_NUMBER)
+//         });
+//         // stm32f4xx_hal::stm32::rtc::BKPR.write();
+
+//         // // Disable interrupts
+//         // cortex_m::interrupt::disable();
+//         // cortex_m::asm::bootload(0x0010_0000 as *const u32);
+//         cortex_m::asm::bootload(0x1FFF0000 as *const u32);
+
+//         // cortex_m::asm::dsb();
+
+//         // 0x1FFF76DE - Bootloader memory location
+//         // 12 Kbyte starting from address 0x20000000
+//         // are used by the bootloader firmware for RAM
+//         // 29 Kbyte starting from address 0x1FFF0000,
+//         // contain the bootloader firmware
+//         // 0x20003000 - 0x2001FFFF: RAM
+//         // 0x1FFF0000 - 0x1FFF77FF: System Memory
+
+
+//         // cortex_m::asm::bootload(0x0 as *const u32);
+//         // cortex_m::asm::bootload(0x1FFF0000 as *const u32);
+//         // cortex_m::asm::bootload(0x08000000 as *const u32);
+//         // cortex_m::asm::bootstrap(0x20003000 as *const u32, 0x1FFF76DE as *const u32);
+//         // cortex_m::asm::bootstrap(0x1FFF0000 as *const u32, (0x1FFF0000 + 4) as *const u32);
+//     }
+
+//     // cortex_m::asm::bootload(0x00000004 as *const u32);
+//     // cortex_m::asm::bootload(0x08000000 as *const u32);
+//     // cortex_m::asm::bootload(0x0 as *const u32);
+//     // cortex_m::asm::bootload(0x1FFF76DE as *const u32);
+
+    
+//     // stm32f4xx_hal::pac::SCB::sys_reset();
+//     // unsafe {
+//     //     cortex_m::asm::bootload(0x1FFF0000 as *const u32);
+//     // }
+// }
