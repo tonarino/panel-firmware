@@ -48,23 +48,33 @@ fn write_to_backup_register(val: u32, dp: &stm32::Peripherals) {
     rtc.bkpr[BACKUP_REGISTER_INDEX].write(|w| w.bkp().bits(val));
 }
 
-fn enable_backup_domain(dp: &hal::stm32::Peripherals) {
+fn enable_backup_domain(dp: &stm32::Peripherals) {
     let pwr = &dp.PWR;
     let rcc = &dp.RCC;
 
-    // Enable the power interface clock by setting the PWREN bits in the RCC_APB1ENR register
+    // Enable the power interface clock by setting the PWREN bits in the RCC_APB1ENR register.
     rcc.apb1enr.write(|w| w.pwren().bit(true));
 
-    // Stall the pipeline to work around erratum 2.1.13 (DM00037591)
+    // Stall the pipeline to work around erratum 2.1.13 (DM00037591).
     cortex_m::asm::dsb();
 
-    // Set the DBP bit in the Section 5.4.1 to enable access to the backup domain
+    // Set the DBP bit in the Section 5.4.1 to enable access to the backup domain.
     pwr.cr.write(|w| w.dbp().bit(true));
 
-    // Enable the RTC clock by programming the RTCEN [15] bit in the Section 7.3.20: RCC Backup domain control register (RCC_BDCR)
+    // Enable the RTC clock by programming the RTCEN [15] bit in the Section 7.3.20: RCC Backup domain control register (RCC_BDCR).
     rcc.bdcr.write(|w| w.rtcen().bit(true));
 }
 
 fn disable_backup_domain(dp: &stm32::Peripherals) {
-    dp.PWR.cr.write(|w| w.dbp().bit(false));
+    let pwr = &dp.PWR;
+    let rcc = &dp.RCC;
+
+    // Disable the RTC clock by programming the RTCEN [15] bit in the Section 7.3.20: RCC Backup domain control register (RCC_BDCR).
+    rcc.bdcr.write(|w| w.rtcen().bit(false));
+
+    // Unset the DBP bit in the Section 5.4.1 to disable access to the backup domain.
+    pwr.cr.write(|w| w.dbp().bit(false));
+
+    // Disable the power interface clock by unsetting the PWREN bits in the RCC_APB1ENR register.
+    rcc.apb1enr.write(|w| w.pwren().bit(false));
 }
