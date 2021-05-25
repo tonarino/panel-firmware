@@ -12,7 +12,6 @@ use crate::{
     rgb_led::{LedStrip, Pulser, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
-
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 use hal::{
@@ -70,32 +69,6 @@ fn main() -> ! {
     let mut led = gpioc.pc13.into_push_pull_output();
     led.set_high().unwrap();
 
-    // Set up USB communications
-    let usb_pin_d_plus = gpioa.pa12.into_alternate_af10();
-    let usb_pin_d_minus = gpioa.pa11.into_alternate_af10();
-
-    let usb = USB {
-        usb_global: dp.OTG_FS_GLOBAL,
-        usb_device: dp.OTG_FS_DEVICE,
-        usb_pwrclk: dp.OTG_FS_PWRCLK,
-        hclk: clocks.hclk(),
-
-        pin_dm: usb_pin_d_minus,
-        pin_dp: usb_pin_d_plus,
-    };
-
-    let usb_bus = UsbBus::new(usb, unsafe { &mut USB_ENDPOINT_MEMORY });
-    let serial = SerialPort::new(&usb_bus);
-
-    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
-        .manufacturer("tonari")
-        .product("tonari dashboard controller")
-        .serial_number("tonari-dashboard-controller-v1")
-        .device_class(USB_CLASS_CDC)
-        .build();
-
-    let mut protocol = SerialProtocol::new(usb_dev, serial);
-
     // SPI Setup (for WS8212b RGB LEDs)
     let mosi_pin = gpiob.pb15.into_alternate_af5();
     let spi_pins = (NoSck, NoMiso, mosi_pin);
@@ -147,6 +120,43 @@ fn main() -> ! {
 
     let mut led_color = (0u8, 30u8, 255u8);
     let mut led_pulse = false;
+
+    // Set up USB communication.
+    // First we set the D+ pin low for 100ms to simulate a USB
+    // reset condition. This ensures more stable operation when
+    // booting up after a USB DFU firmware update. Without this,
+    // the USB serial device sometimes doesn't show on the host OS
+    // after booting up.
+    let mut delay = hal::delay::Delay::new(cp.SYST, clocks);
+    let mut usb_pin_d_plus = gpioa.pa12.into_push_pull_output();
+    usb_pin_d_plus.set_low().unwrap();
+    delay.delay_ms(100_u32);
+
+    // Now we can connect as a USB serial device to the host.
+    let usb_pin_d_plus = usb_pin_d_plus.into_alternate_af10();
+    let usb_pin_d_minus = gpioa.pa11.into_alternate_af10();
+
+    let usb = USB {
+        usb_global: dp.OTG_FS_GLOBAL,
+        usb_device: dp.OTG_FS_DEVICE,
+        usb_pwrclk: dp.OTG_FS_PWRCLK,
+        hclk: clocks.hclk(),
+
+        pin_dm: usb_pin_d_minus,
+        pin_dp: usb_pin_d_plus,
+    };
+
+    let usb_bus = UsbBus::new(usb, unsafe { &mut USB_ENDPOINT_MEMORY });
+    let serial = SerialPort::new(&usb_bus);
+
+    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("tonari")
+        .product("tonari dashboard controller")
+        .serial_number("tonari-dashboard-controller-v1")
+        .device_class(USB_CLASS_CDC)
+        .build();
+
+    let mut protocol = SerialProtocol::new(usb_dev, serial);
 
     // Turn the LED on to indicate we've powered up successfully.
     led.set_low().unwrap();
