@@ -12,7 +12,6 @@ use crate::{
     rgb_led::{LedStrip, Pulser, Rgb},
     serial::{Command, Report, SerialProtocol},
 };
-
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 use hal::{
@@ -27,6 +26,7 @@ use hal::{
 use usb_device::device::{UsbDeviceBuilder, UsbVidPid};
 use usbd_serial::{SerialPort, USB_CLASS_CDC};
 
+mod bootload;
 mod button;
 mod counter;
 mod overhead_light;
@@ -39,6 +39,9 @@ static mut USB_ENDPOINT_MEMORY: [u32; 1024] = [0; 1024];
 fn main() -> ! {
     let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = stm32::Peripherals::take().expect("failed to get stm32 peripherals");
+
+    // This call needs to happen as early as possible in the firmware.
+    bootload::jump_to_bootloader_if_requested(&dp);
 
     // Take ownership over the raw devices and convert them into the corresponding
     // HAL structs.
@@ -64,32 +67,7 @@ fn main() -> ! {
 
     // Set up the LED (C13).
     let mut led = gpioc.pc13.into_push_pull_output();
-
-    // Set up USB communications
-    let usb_pin_d_plus = gpioa.pa12.into_alternate_af10();
-    let usb_pin_d_minus = gpioa.pa11.into_alternate_af10();
-
-    let usb = USB {
-        usb_global: dp.OTG_FS_GLOBAL,
-        usb_device: dp.OTG_FS_DEVICE,
-        usb_pwrclk: dp.OTG_FS_PWRCLK,
-        hclk: clocks.hclk(),
-
-        pin_dm: usb_pin_d_minus,
-        pin_dp: usb_pin_d_plus,
-    };
-
-    let usb_bus = UsbBus::new(usb, unsafe { &mut USB_ENDPOINT_MEMORY });
-    let serial = SerialPort::new(&usb_bus);
-
-    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
-        .manufacturer("tonari")
-        .product("tonari dashboard controller")
-        .serial_number("tonari-dashboard-controller-v1")
-        .device_class(USB_CLASS_CDC)
-        .build();
-
-    let mut protocol = SerialProtocol::new(usb_dev, serial);
+    led.set_high().unwrap();
 
     // SPI Setup (for WS8212b RGB LEDs)
     let mosi_pin = gpiob.pb15.into_alternate_af5();
@@ -132,7 +110,7 @@ fn main() -> ! {
     // Connect a rotary encoder to pins A8 and A9.
     let rotary_encoder_timer = dp.TIM1;
     let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
-    let rotary_encoder = Qei::tim1(rotary_encoder_timer, rotary_encoder_pins);
+    let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
 
@@ -142,6 +120,46 @@ fn main() -> ! {
 
     let mut led_color = (0u8, 30u8, 255u8);
     let mut led_pulse = false;
+
+    // Set up USB communication.
+    // First we set the D+ pin low for 100ms to simulate a USB
+    // reset condition. This ensures more stable operation when
+    // booting up after a USB DFU firmware update. Without this,
+    // the USB serial device sometimes doesn't show on the host OS
+    // after booting up.
+    let mut delay = hal::delay::Delay::new(cp.SYST, clocks);
+    let mut usb_pin_d_plus = gpioa.pa12.into_push_pull_output();
+    usb_pin_d_plus.set_low().unwrap();
+    delay.delay_ms(100_u32);
+
+    // Now we can connect as a USB serial device to the host.
+    let usb_pin_d_plus = usb_pin_d_plus.into_alternate_af10();
+    let usb_pin_d_minus = gpioa.pa11.into_alternate_af10();
+
+    let usb = USB {
+        usb_global: dp.OTG_FS_GLOBAL,
+        usb_device: dp.OTG_FS_DEVICE,
+        usb_pwrclk: dp.OTG_FS_PWRCLK,
+        hclk: clocks.hclk(),
+
+        pin_dm: usb_pin_d_minus,
+        pin_dp: usb_pin_d_plus,
+    };
+
+    let usb_bus = UsbBus::new(usb, unsafe { &mut USB_ENDPOINT_MEMORY });
+    let serial = SerialPort::new(&usb_bus);
+
+    let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
+        .manufacturer("tonari")
+        .product("tonari dashboard controller")
+        .serial_number("tonari-dashboard-controller-v1")
+        .device_class(USB_CLASS_CDC)
+        .build();
+
+    let mut protocol = SerialProtocol::new(usb_dev, serial);
+
+    // Turn the LED on to indicate we've powered up successfully.
+    led.set_low().unwrap();
 
     loop {
         match encoder_button.poll() {
@@ -178,6 +196,10 @@ fn main() -> ! {
                 Command::Led { r, g, b, pulse } => {
                     led_color = (r, g, b);
                     led_pulse = pulse;
+                },
+                Command::Bootload => {
+                    led.set_high().unwrap();
+                    bootload::request_bootloader();
                 },
                 _ => {},
             }

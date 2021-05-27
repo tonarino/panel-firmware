@@ -110,3 +110,19 @@ Set the baud rate with the `-b` flag:
 ```
 serial-monitor -b 9600 -p /dev/cu.SLAB_USBtoUART
 ```
+
+## Debugging with an STM32F103-based Board
+
+* Download the BlackMagic `v*.tar.gz` tarball release on [github](https://github.com/blacksphere/blackmagic/releases/)
+* Find `blackmagic_dfu_swlink.bin` in the tarball.
+* Using a USB-serial device, put an STM32F103 dev board (typically a blue-pill or black-pill) in bootloader mode (see the steps above).
+* Run `stm32flash -R -b 230400 -w blackmagic_dfu-swlink.bin -v <PATH_TO_YOUR_SERIAL_DEVICE_HERE>`
+* Get `blackmagic-native.bin` from the release tarball as well.
+* Run `dfu-util -d 1d50:6018,:6017 -s 0x08002000:leave -D blackmagic-native.bin`
+
+### Debugging
+* Attach the SWD wires from the blackmagic debug probe you just created to the target device. This is typically 4 wires: `3v3`, `GND`, `SWDIO`, and `SWCLK`.
+* Run `arm-none-eabi-gdb target/thumbv7em-none-eabihf/release/panel-firmware` (you will need a GNU ARM toolchain for this)
+* Inside gdb, run `target extended-remote /dev/cu.usbmodem95C55F961` (or wherever your blackmagic probe shows up as a device)
+* In gdb: `monitor swdp_scan`
+* In gdb: `attach 1`
