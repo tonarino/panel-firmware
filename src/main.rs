@@ -37,6 +37,7 @@ static mut USB_ENDPOINT_MEMORY: [u32; 1024] = [0; 1024];
 
 #[entry]
 fn main() -> ! {
+    let panel_serial_number = env!("PANEL_SERIAL_NUMBER");
     let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = stm32::Peripherals::take().expect("failed to get stm32 peripherals");
 
@@ -152,7 +153,7 @@ fn main() -> ! {
     let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
         .manufacturer("tonari")
         .product("tonari dashboard controller")
-        .serial_number("tonari-dashboard-controller-v1")
+        .serial_number(panel_serial_number)
         .device_class(USB_CLASS_CDC)
         .build();
 
