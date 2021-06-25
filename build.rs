@@ -1,8 +1,5 @@
 fn main() {
-    println!(
-        "cargo:rustc-env=PANEL_SERIAL_NUMBER=tonari-panel-controller-{}",
-        get_git_commit_short(),
-    );
+    println!("cargo:rustc-env=PANEL_SERIAL_NUMBER={}", get_git_commit_short(),);
 }
 
 fn get_git_commit() -> String {

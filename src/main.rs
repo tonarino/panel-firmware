@@ -152,7 +152,7 @@ fn main() -> ! {
 
     let usb_dev = UsbDeviceBuilder::new(&usb_bus, UsbVidPid(0x16c0, 0x27dd))
         .manufacturer("tonari")
-        .product("tonari dashboard controller")
+        .product("panel_controller")
         .serial_number(panel_serial_number)
         .device_class(USB_CLASS_CDC)
         .build();
