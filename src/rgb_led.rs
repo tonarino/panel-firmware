@@ -130,8 +130,9 @@ impl Pulser {
 
     pub fn intensity(&mut self) -> f32 {
         let intervals = self.instant.elapsed() as f32 / self.interval_ticks;
-        let pulse = (libm::sinf(intervals) + 1.0) * 0.5;
-        let skip_one = if libm::sinf((intervals + PI / 2.0) / 2.0) >= 0.0 { 1.0 } else { 0.0 };
+        let pulse = (-1.0 * libm::cosf(2.0 * PI * intervals) + 1.0) * 0.5;
+        // skip a pulse using the period*2 sin
+        let skip_one = if libm::sinf(intervals * PI) >= 0.0 { 1.0 } else { 0.0 };
 
         pulse * skip_one
     }
