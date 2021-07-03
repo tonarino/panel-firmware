@@ -118,6 +118,7 @@ impl U64Instant {
 pub struct Pulser {
     instant: U64Instant,
     interval_ticks: f32,
+    pub interval_ms: u32,
 }
 
 impl Pulser {
@@ -125,7 +126,7 @@ impl Pulser {
         let instant = timer.now().into();
         let interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
 
-        Self { instant, interval_ticks }
+        Self { instant, interval_ticks, interval_ms }
     }
 
     pub fn intensity(&mut self) -> f32 {
@@ -135,5 +136,16 @@ impl Pulser {
         let skip_one = if libm::sinf(intervals * PI) >= 0.0 { 1.0 } else { 0.0 };
 
         pulse * skip_one
+    }
+
+    /// Reset the starting time to be now
+    pub fn reset(&mut self, timer: &MonoTimer) {
+        self.instant = timer.now().into();
+    }
+
+    /// Set the interval of pulsing
+    pub fn set_interval(&mut self, interval_ms: u32, timer: &MonoTimer) {
+        self.interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
+        self.interval_ms = interval_ms;
     }
 }
