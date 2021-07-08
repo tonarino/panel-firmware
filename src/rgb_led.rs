@@ -128,6 +128,10 @@ impl Pulser {
         Self { instant, interval_ticks }
     }
 
+    pub fn set_interval_ms(&mut self, interval_ms: u32, timer: &MonoTimer) {
+        self.interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
+    }
+
     pub fn intensity(&mut self) -> f32 {
         let intervals = self.instant.elapsed() as f32 / self.interval_ticks;
         let pulse = (-1.0 * libm::cosf(2.0 * PI * intervals) + 1.0) * 0.5;

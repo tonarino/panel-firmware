@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+use panel_protocol::PulseMode;
 use panic_reset as _; // panic handler
 
 use stm32f4xx_hal as hal;
@@ -115,13 +116,16 @@ fn main() -> ! {
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
+    // Previous intensity when used with dial turn intensity
+    let mut quadrature_zero_value = 0.0;
+    let mut previous_dial_turn_intensity = 0.0;
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin);
 
     let mut led_color = (0u8, 30u8, 255u8);
-    let mut led_pulse = false;
+    let mut led_pulse = PulseMode::Solid;
 
     // Set up USB communication.
     // First we set the D+ pin low for 100ms to simulate a USB
@@ -195,9 +199,9 @@ fn main() -> ! {
                     1 => back_light.set_color_temperature(value),
                     _ => {},
                 },
-                Command::Led { r, g, b, pulse } => {
+                Command::Led { r, g, b, pulse_mode } => {
                     led_color = (r, g, b);
-                    led_pulse = pulse;
+                    led_pulse = pulse_mode;
                 },
                 Command::Bootload => {
                     led.set_high().unwrap();
@@ -207,7 +211,33 @@ fn main() -> ! {
             }
         }
 
-        let intensity = if led_pulse { pulser.intensity() } else { 1.0 };
+        let intensity = match led_pulse {
+            PulseMode::Breathing { interval_ms } => {
+                if let Some(interval_ms) = interval_ms {
+                    pulser.set_interval_ms(interval_ms as u32, &timer)
+                }
+                pulser.intensity()
+            },
+            PulseMode::DialTurn => {
+                let quadrature_step = counter.inner_count() % 4;
+                // Most of the time will be spent on the "zero value", so keep a running average of that
+                quadrature_zero_value =
+                    quadrature_zero_value * 0.999 + (quadrature_step as f32) * 0.001;
+                let actual_quadrature_step =
+                    (quadrature_step as f32 + 4.0 - quadrature_zero_value) % 4.0;
+
+                // Quadratic curve centered at 2, smoothed with previous intensity
+                let new_intensity = f32::max(
+                    1.0 - (actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0),
+                    0.0,
+                );
+
+                previous_dial_turn_intensity =
+                    0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
+                previous_dial_turn_intensity
+            },
+            PulseMode::Solid => 1.0,
+        };
         led_strip.set_all(Rgb::new(
             (led_color.0 as f32 * intensity) as u8,
             (led_color.1 as f32 * intensity) as u8,
