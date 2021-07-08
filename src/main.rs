@@ -81,7 +81,7 @@ fn main() -> ! {
     let mut led_strip = LedStrip::new(spi);
 
     let timer = MonoTimer::new(cp.DWT, cp.DCB, clocks);
-    // human relaxed breath time: around 4s in/out and 4s wait
+    // Human relaxed breath time: around 4s in/out and 4s wait
     let mut pulser = Pulser::new(4000, &timer);
 
     // PWM Setup
@@ -226,11 +226,10 @@ fn main() -> ! {
                 let actual_quadrature_step =
                     (quadrature_step as f32 + 4.0 - quadrature_zero_value) % 4.0;
 
-                // Quadratic curve centered at 2, smoothed with previous intensity
-                let new_intensity = f32::max(
-                    1.0 - (actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0),
-                    0.0,
-                );
+                // Quadratic curve centered at 2, smoothed with previous intensity and clamped
+                let new_intensity =
+                    ((actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0) - 0.5)
+                        .clamp(0.0, 1.0);
 
                 previous_dial_turn_intensity =
                     0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
