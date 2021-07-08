@@ -80,7 +80,8 @@ fn main() -> ! {
     let mut led_strip = LedStrip::new(spi);
 
     let timer = MonoTimer::new(cp.DWT, cp.DCB, clocks);
-    let mut pulser = Pulser::new(700, &timer);
+    // human relaxed breath time: around 4s in/out and 4s wait
+    let mut pulser = Pulser::new(4000, &timer);
 
     // PWM Setup
     let pwm_freq = 1.khz();
