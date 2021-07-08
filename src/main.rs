@@ -117,6 +117,9 @@ fn main() -> ! {
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
+    // Previous intensity when used with dial turn intensity
+    let mut quadrature_zero_value = 0.0;
+    let mut previous_dial_turn_intensity = 0.0;
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);

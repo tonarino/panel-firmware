@@ -23,4 +23,10 @@ impl<PINS> Counter<PINS> {
             None
         }
     }
+
+    // Purely used for dial turn led indication
+    // You probably want to use poll for anything else
+    pub fn inner_count(&mut self) -> u16 {
+        self.qei.count()
+    }
 }
