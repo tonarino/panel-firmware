@@ -166,7 +166,7 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
-    let mut leds = [Rgb::new(0, 0, 0); LED_COUNT];
+    let mut led_intensities = [0.0; LED_COUNT];
 
     loop {
         match encoder_button.poll() {
@@ -242,15 +242,19 @@ fn main() -> ! {
                 //     0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
                 // previous_dial_turn_intensity
 
-                let mut new_leds = [Rgb::new(0, 0, 0); LED_COUNT];
-                new_leds[current_led] = Rgb::new(led_color.0, led_color.1, led_color.2);
-                for (mut led, new_led_value) in leds.iter_mut().zip(new_leds.iter()) {
-                    led.r = (0.99 * (led.r as f32) + 0.01 * (new_led_value.r as f32))
-                        .clamp(0.0, 255.0) as u8;
-                    led.g = (0.99 * (led.g as f32) + 0.01 * (new_led_value.g as f32))
-                        .clamp(0.0, 255.0) as u8;
-                    led.b = (0.99 * (led.b as f32) + 0.01 * (new_led_value.b as f32))
-                        .clamp(0.0, 255.0) as u8;
+                let mut new_led_intensities = [0.0; LED_COUNT];
+                new_led_intensities[current_led] = 1.0;
+                let mut leds = [Rgb::new(led_color.0, led_color.1, led_color.2); LED_COUNT];
+                for (led_intensity, new_led_intensity) in
+                    led_intensities.iter_mut().zip(new_led_intensities.iter())
+                {
+                    *led_intensity = 0.995 * *led_intensity + 0.005 * new_led_intensity;
+                }
+
+                for (mut led, intensity) in leds.iter_mut().zip(led_intensities.iter()) {
+                    led.r = ((led.r as f32) * intensity) as u8;
+                    led.g = ((led.g as f32) * intensity) as u8;
+                    led.b = ((led.b as f32) * intensity) as u8;
                 }
 
                 led_strip.set_colors(&leds);
