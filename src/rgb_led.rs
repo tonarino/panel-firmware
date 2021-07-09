@@ -16,14 +16,23 @@ pub struct LedStrip<F: FullDuplex<u8>> {
 
 #[derive(Copy, Clone)]
 pub struct Rgb {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
+    /// All in the range 0.0 - 255.0
+    /// Rounded when actually in use
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
 }
 
 impl Rgb {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
+    pub fn new(r: f32, g: f32, b: f32) -> Self {
         Self { r, g, b }
+    }
+
+    /// Fade the current color toward the other one with a simple moving average
+    pub fn fade_towards(&mut self, other: &Self, fade_const: f32) {
+        self.r = self.r * fade_const + other.r * (1.0 - fade_const);
+        self.g = self.g * fade_const + other.g * (1.0 - fade_const);
+        self.b = self.b * fade_const + other.b * (1.0 - fade_const);
     }
 }
 
@@ -32,13 +41,14 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
         Self { spi_bus }
     }
 
+    #[allow(unused)]
     pub fn set_all(&mut self, rgb: Rgb) {
         self.flush();
 
         for _led in 0..LED_COUNT {
-            self.write_byte(rgb.g);
-            self.write_byte(rgb.r);
-            self.write_byte(rgb.b);
+            self.write_byte(rgb.g.clamp(0.0, 255.0) as u8);
+            self.write_byte(rgb.r.clamp(0.0, 255.0) as u8);
+            self.write_byte(rgb.b.clamp(0.0, 255.0) as u8);
         }
 
         self.flush();
@@ -49,9 +59,9 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
         self.flush();
 
         for led in rgb_data {
-            self.write_byte(led.g);
-            self.write_byte(led.r);
-            self.write_byte(led.b);
+            self.write_byte(led.g.clamp(0.0, 255.0) as u8);
+            self.write_byte(led.r.clamp(0.0, 255.0) as u8);
+            self.write_byte(led.b.clamp(0.0, 255.0) as u8);
         }
 
         self.flush();
