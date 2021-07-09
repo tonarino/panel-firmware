@@ -169,10 +169,7 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
-<<<<<<< HEAD
     let mut led_intensities = [0.0; LED_COUNT];
-=======
->>>>>>> 243edcc (This is for Edward)
 
     loop {
         match encoder_button.poll() {
@@ -232,7 +229,6 @@ fn main() -> ! {
                 ));
             },
             PulseMode::DialTurn => {
-<<<<<<< HEAD
                 let mut new_led_intensities = [0.0; LED_COUNT];
                 new_led_intensities[current_led] = 1.0;
                 let mut leds = [Rgb::new(led_color.0, led_color.1, led_color.2); LED_COUNT];
@@ -246,29 +242,6 @@ fn main() -> ! {
                     led.r = ((led.r as f32) * intensity) as u8;
                     led.g = ((led.g as f32) * intensity) as u8;
                     led.b = ((led.b as f32) * intensity) as u8;
-=======
-                // let quadrature_step = counter.inner_count() % 4;
-                // // Most of the time will be spent on the "zero value", so keep a running average of that
-                // quadrature_zero_value =
-                //     quadrature_zero_value * 0.999 + (quadrature_step as f32) * 0.001;
-                // let actual_quadrature_step =
-                //     (quadrature_step as f32 + 4.0 - quadrature_zero_value) % 4.0;
-
-                // // Quadratic curve centered at 2, smoothed with previous intensity and clamped
-                // let new_intensity =
-                //     ((actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0) - 0.5)
-                //         .clamp(0.0, 1.0);
-
-                // previous_dial_turn_intensity =
-                //     0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
-                // previous_dial_turn_intensity
-
-                let mut leds = [Rgb::new(0, 0, 0); LED_COUNT];
-
-                for (i, mut led) in leds.iter_mut().enumerate() {
-                    // leds[current_led] = Rgb::new(led_color.0, led_color.1, led_color.2);
-                    let dist: usize = current_led.wrapping_sub(i);
->>>>>>> 243edcc (This is for Edward)
                 }
 
                 led_strip.set_colors(&leds);
