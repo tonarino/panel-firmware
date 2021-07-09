@@ -213,9 +213,7 @@ fn main() -> ! {
 
         let intensity = match led_pulse {
             PulseMode::Breathing { interval_ms } => {
-                if let Some(interval_ms) = interval_ms {
-                    pulser.set_interval_ms(interval_ms as u32, &timer)
-                }
+                pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
                 pulser.intensity()
             },
             PulseMode::DialTurn => {

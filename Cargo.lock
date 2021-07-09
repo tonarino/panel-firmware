@@ -227,7 +227,7 @@ dependencies = [
 [[package]]
 name = "panel-protocol"
 version = "0.4.0"
-source = "git+https://github.com/tonarino/panel-protocol.git?branch=set-pulse-interval#501021a26aa436621e8a256d9e551e543b90a925"
+source = "git+https://github.com/tonarino/panel-protocol.git?branch=set-pulse-interval#bcd2d4d315e08ed5577f9fe2af16f36a50f6759a"
 dependencies = [
  "arrayvec",
 ]
