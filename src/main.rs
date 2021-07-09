@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 
+use crate::rgb_led::LED_COUNT;
 use panel_protocol::PulseMode;
 use panic_reset as _; // panic handler
 
@@ -167,6 +168,8 @@ fn main() -> ! {
     // Turn the LED on to indicate we've powered up successfully.
     led.set_low().unwrap();
 
+    let mut current_led = 0usize;
+
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Press) => {
@@ -183,6 +186,8 @@ fn main() -> ! {
         if let Some(diff) = counter.poll() {
             if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
+
+                current_led = current_led.wrapping_add(diff as usize) % 4;
             }
         }
 
@@ -211,34 +216,52 @@ fn main() -> ! {
             }
         }
 
-        let intensity = match led_pulse {
+        match led_pulse {
             PulseMode::Breathing { interval_ms } => {
                 pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
-                pulser.intensity()
+                let intensity = pulser.intensity();
+
+                led_strip.set_all(Rgb::new(
+                    (led_color.0 as f32 * intensity) as u8,
+                    (led_color.1 as f32 * intensity) as u8,
+                    (led_color.2 as f32 * intensity) as u8,
+                ));
             },
             PulseMode::DialTurn => {
-                let quadrature_step = counter.inner_count() % 4;
-                // Most of the time will be spent on the "zero value", so keep a running average of that
-                quadrature_zero_value =
-                    quadrature_zero_value * 0.999 + (quadrature_step as f32) * 0.001;
-                let actual_quadrature_step =
-                    (quadrature_step as f32 + 4.0 - quadrature_zero_value) % 4.0;
+                // let quadrature_step = counter.inner_count() % 4;
+                // // Most of the time will be spent on the "zero value", so keep a running average of that
+                // quadrature_zero_value =
+                //     quadrature_zero_value * 0.999 + (quadrature_step as f32) * 0.001;
+                // let actual_quadrature_step =
+                //     (quadrature_step as f32 + 4.0 - quadrature_zero_value) % 4.0;
 
-                // Quadratic curve centered at 2, smoothed with previous intensity and clamped
-                let new_intensity =
-                    ((actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0) - 0.5)
-                        .clamp(0.0, 1.0);
+                // // Quadratic curve centered at 2, smoothed with previous intensity and clamped
+                // let new_intensity =
+                //     ((actual_quadrature_step - 2.0) * (actual_quadrature_step - 2.0) - 0.5)
+                //         .clamp(0.0, 1.0);
 
-                previous_dial_turn_intensity =
-                    0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
-                previous_dial_turn_intensity
+                // previous_dial_turn_intensity =
+                //     0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
+                // previous_dial_turn_intensity
+
+                let mut leds = [Rgb::new(0, 0, 0); LED_COUNT];
+
+                for (i, mut led) in leds.iter_mut().enumerate() {
+                    // leds[current_led] = Rgb::new(led_color.0, led_color.1, led_color.2);
+                    let dist: usize = current_led.wrapping_sub(i);
+                }
+
+                led_strip.set_colors(&leds);
             },
-            PulseMode::Solid => 1.0,
+            PulseMode::Solid => {
+                let intensity = 1.0;
+
+                led_strip.set_all(Rgb::new(
+                    (led_color.0 as f32 * intensity) as u8,
+                    (led_color.1 as f32 * intensity) as u8,
+                    (led_color.2 as f32 * intensity) as u8,
+                ));
+            },
         };
-        led_strip.set_all(Rgb::new(
-            (led_color.0 as f32 * intensity) as u8,
-            (led_color.1 as f32 * intensity) as u8,
-            (led_color.2 as f32 * intensity) as u8,
-        ));
     }
 }
