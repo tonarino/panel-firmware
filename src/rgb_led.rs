@@ -16,9 +16,9 @@ pub struct LedStrip<F: FullDuplex<u8>> {
 
 #[derive(Copy, Clone)]
 pub struct Rgb {
-    r: u8,
-    g: u8,
-    b: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
 impl Rgb {

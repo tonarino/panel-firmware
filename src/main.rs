@@ -117,9 +117,6 @@ fn main() -> ! {
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
-    // Previous intensity when used with dial turn intensity
-    let mut quadrature_zero_value = 0.0;
-    let mut previous_dial_turn_intensity = 0.0;
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
@@ -169,6 +166,7 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
+    let mut leds = [Rgb::new(0, 0, 0); LED_COUNT];
 
     loop {
         match encoder_button.poll() {
@@ -244,11 +242,15 @@ fn main() -> ! {
                 //     0.96 * previous_dial_turn_intensity + 0.04 * new_intensity;
                 // previous_dial_turn_intensity
 
-                let mut leds = [Rgb::new(0, 0, 0); LED_COUNT];
-
-                for (i, mut led) in leds.iter_mut().enumerate() {
-                    // leds[current_led] = Rgb::new(led_color.0, led_color.1, led_color.2);
-                    let dist: usize = current_led.wrapping_sub(i);
+                let mut new_leds = [Rgb::new(0, 0, 0); LED_COUNT];
+                new_leds[current_led] = Rgb::new(led_color.0, led_color.1, led_color.2);
+                for (mut led, new_led_value) in leds.iter_mut().zip(new_leds.iter()) {
+                    led.r = (0.99 * (led.r as f32) + 0.01 * (new_led_value.r as f32))
+                        .clamp(0.0, 255.0) as u8;
+                    led.g = (0.99 * (led.g as f32) + 0.01 * (new_led_value.g as f32))
+                        .clamp(0.0, 255.0) as u8;
+                    led.b = (0.99 * (led.b as f32) + 0.01 * (new_led_value.b as f32))
+                        .clamp(0.0, 255.0) as u8;
                 }
 
                 led_strip.set_colors(&leds);
