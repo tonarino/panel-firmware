@@ -251,7 +251,7 @@ fn main() -> ! {
             },
         };
 
-        const FADE_CONSTANT: f32 = 0.995;
+        const FADE_CONSTANT: f32 = 0.997;
         // Fade all leds toward the new leds
         for (led, new_led) in leds.iter_mut().zip(new_leds.iter()) {
             led.fade_towards(new_led, FADE_CONSTANT);
