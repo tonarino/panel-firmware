@@ -7,17 +7,18 @@ use nb::block;
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
 
-const LED_COUNT: usize = 4;
+pub const LED_COUNT: usize = 4;
 const PI: f32 = 3.141_592_7e0;
 
 pub struct LedStrip<F: FullDuplex<u8>> {
     spi_bus: F,
 }
 
+#[derive(Copy, Clone)]
 pub struct Rgb {
-    r: u8,
-    g: u8,
-    b: u8,
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
 }
 
 impl Rgb {
@@ -126,6 +127,10 @@ impl Pulser {
         let interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
 
         Self { instant, interval_ticks }
+    }
+
+    pub fn set_interval_ms(&mut self, interval_ms: u32, timer: &MonoTimer) {
+        self.interval_ticks = timer.frequency().0 as f32 * (interval_ms as f32 / 1000.0);
     }
 
     pub fn intensity(&mut self) -> f32 {

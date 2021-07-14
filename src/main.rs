@@ -1,6 +1,8 @@
 #![no_main]
 #![no_std]
 
+use crate::rgb_led::LED_COUNT;
+use panel_protocol::PulseMode;
 use panic_reset as _; // panic handler
 
 use stm32f4xx_hal as hal;
@@ -80,7 +82,7 @@ fn main() -> ! {
     let mut led_strip = LedStrip::new(spi);
 
     let timer = MonoTimer::new(cp.DWT, cp.DCB, clocks);
-    // human relaxed breath time: around 4s in/out and 4s wait
+    // Human relaxed breath time: around 4s in/out and 4s wait
     let mut pulser = Pulser::new(4000, &timer);
 
     // PWM Setup
@@ -121,7 +123,7 @@ fn main() -> ! {
     let mut encoder_button = Button::new(debounced_encoder_pin);
 
     let mut led_color = (0u8, 30u8, 255u8);
-    let mut led_pulse = false;
+    let mut led_pulse = PulseMode::Solid;
 
     // Set up USB communication.
     // First we set the D+ pin low for 100ms to simulate a USB
@@ -163,6 +165,9 @@ fn main() -> ! {
     // Turn the LED on to indicate we've powered up successfully.
     led.set_low().unwrap();
 
+    let mut current_led = 0usize;
+    let mut led_intensities = [0.0; LED_COUNT];
+
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Press) => {
@@ -179,6 +184,8 @@ fn main() -> ! {
         if let Some(diff) = counter.poll() {
             if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
+
+                current_led = current_led.wrapping_add(diff as usize) % 4;
             }
         }
 
@@ -195,9 +202,9 @@ fn main() -> ! {
                     1 => back_light.set_color_temperature(value),
                     _ => {},
                 },
-                Command::Led { r, g, b, pulse } => {
+                Command::Led { r, g, b, pulse_mode } => {
                     led_color = (r, g, b);
-                    led_pulse = pulse;
+                    led_pulse = pulse_mode;
                 },
                 Command::Bootload => {
                     led.set_high().unwrap();
@@ -207,11 +214,44 @@ fn main() -> ! {
             }
         }
 
-        let intensity = if led_pulse { pulser.intensity() } else { 1.0 };
-        led_strip.set_all(Rgb::new(
-            (led_color.0 as f32 * intensity) as u8,
-            (led_color.1 as f32 * intensity) as u8,
-            (led_color.2 as f32 * intensity) as u8,
-        ));
+        match led_pulse {
+            PulseMode::Breathing { interval_ms } => {
+                pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
+                let intensity = pulser.intensity();
+
+                led_strip.set_all(Rgb::new(
+                    (led_color.0 as f32 * intensity) as u8,
+                    (led_color.1 as f32 * intensity) as u8,
+                    (led_color.2 as f32 * intensity) as u8,
+                ));
+            },
+            PulseMode::DialTurn => {
+                let mut new_led_intensities = [0.0; LED_COUNT];
+                new_led_intensities[current_led] = 1.0;
+                let mut leds = [Rgb::new(led_color.0, led_color.1, led_color.2); LED_COUNT];
+                for (led_intensity, new_led_intensity) in
+                    led_intensities.iter_mut().zip(new_led_intensities.iter())
+                {
+                    *led_intensity = 0.995 * *led_intensity + 0.005 * new_led_intensity;
+                }
+
+                for (mut led, intensity) in leds.iter_mut().zip(led_intensities.iter()) {
+                    led.r = ((led.r as f32) * intensity) as u8;
+                    led.g = ((led.g as f32) * intensity) as u8;
+                    led.b = ((led.b as f32) * intensity) as u8;
+                }
+
+                led_strip.set_colors(&leds);
+            },
+            PulseMode::Solid => {
+                let intensity = 1.0;
+
+                led_strip.set_all(Rgb::new(
+                    (led_color.0 as f32 * intensity) as u8,
+                    (led_color.1 as f32 * intensity) as u8,
+                    (led_color.2 as f32 * intensity) as u8,
+                ));
+            },
+        };
     }
 }

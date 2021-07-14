@@ -224,8 +224,8 @@ dependencies = [
 
 [[package]]
 name = "panel-protocol"
-version = "0.3.0"
-source = "git+https://github.com/tonarino/panel-protocol.git?rev=0.4#b280cc1a28ee647bc52c5e08942aae4f81cdb0f3"
+version = "0.4.0"
+source = "git+https://github.com/tonarino/panel-protocol.git?rev=0.4#47f7a1ed57a8ccee9fe69fe56ce22828e7ae6fa8"
 dependencies = [
  "arrayvec",
 ]
