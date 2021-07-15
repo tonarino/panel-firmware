@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-use crate::rgb_led::LED_COUNT;
+use crate::{rgb::Rgb, rgb_led::LED_COUNT};
 use panel_protocol::PulseMode;
 use panic_reset as _; // panic handler
 
@@ -11,7 +11,7 @@ use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
     overhead_light::OverheadLight,
-    rgb_led::{LedStrip, Pulser, Rgb},
+    rgb_led::{LedStrip, Pulser},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -32,6 +32,7 @@ mod bootload;
 mod button;
 mod counter;
 mod overhead_light;
+mod rgb;
 mod rgb_led;
 mod serial;
 
@@ -122,7 +123,7 @@ fn main() -> ! {
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin);
 
-    let mut led_color = (0u8, 30u8, 255u8);
+    let mut led_color = Rgb::new_from_u8(0, 30, 255);
     let mut led_pulse = PulseMode::Solid;
 
     // Set up USB communication.
@@ -166,7 +167,8 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
-    let mut led_intensities = [0.0; LED_COUNT];
+    let mut leds = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
+    let mut new_leds = leds;
 
     loop {
         match encoder_button.poll() {
@@ -185,7 +187,7 @@ fn main() -> ! {
             if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
 
-                current_led = current_led.wrapping_add(diff as usize) % 4;
+                current_led = current_led.wrapping_add(diff as usize) % LED_COUNT;
             }
         }
 
@@ -203,7 +205,7 @@ fn main() -> ! {
                     _ => {},
                 },
                 Command::Led { r, g, b, pulse_mode } => {
-                    led_color = (r, g, b);
+                    led_color = Rgb::new_from_u8(r, g, b);
                     led_pulse = pulse_mode;
                 },
                 Command::Bootload => {
@@ -219,39 +221,31 @@ fn main() -> ! {
                 pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
                 let intensity = pulser.intensity();
 
-                led_strip.set_all(Rgb::new(
-                    (led_color.0 as f32 * intensity) as u8,
-                    (led_color.1 as f32 * intensity) as u8,
-                    (led_color.2 as f32 * intensity) as u8,
-                ));
+                for new_led in new_leds.iter_mut() {
+                    *new_led = led_color * intensity;
+                }
             },
             PulseMode::DialTurn => {
-                let mut new_led_intensities = [0.0; LED_COUNT];
-                new_led_intensities[current_led] = 1.0;
-                let mut leds = [Rgb::new(led_color.0, led_color.1, led_color.2); LED_COUNT];
-                for (led_intensity, new_led_intensity) in
-                    led_intensities.iter_mut().zip(new_led_intensities.iter())
-                {
-                    *led_intensity = 0.995 * *led_intensity + 0.005 * new_led_intensity;
+                for new_led in new_leds.iter_mut() {
+                    *new_led = Rgb::new_from_u8(0, 0, 0);
                 }
 
-                for (mut led, intensity) in leds.iter_mut().zip(led_intensities.iter()) {
-                    led.r = ((led.r as f32) * intensity) as u8;
-                    led.g = ((led.g as f32) * intensity) as u8;
-                    led.b = ((led.b as f32) * intensity) as u8;
-                }
-
-                led_strip.set_colors(&leds);
+                new_leds[current_led] = led_color;
             },
             PulseMode::Solid => {
                 let intensity = 1.0;
 
-                led_strip.set_all(Rgb::new(
-                    (led_color.0 as f32 * intensity) as u8,
-                    (led_color.1 as f32 * intensity) as u8,
-                    (led_color.2 as f32 * intensity) as u8,
-                ));
+                for new_led in new_leds.iter_mut() {
+                    *new_led = led_color * intensity;
+                }
             },
         };
+
+        const FADE_CONSTANT: f32 = 0.993;
+        // Fade all leds toward the new leds
+        for (led, new_led) in leds.iter_mut().zip(new_leds.iter()) {
+            led.fade_towards(new_led, FADE_CONSTANT);
+        }
+        led_strip.set_colors(&leds);
     }
 }
