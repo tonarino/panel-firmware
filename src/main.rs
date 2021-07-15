@@ -227,9 +227,7 @@ fn main() -> ! {
             },
             PulseMode::DialTurn => {
                 for new_led in new_leds.iter_mut() {
-                    new_led.r = 0.0;
-                    new_led.g = 0.0;
-                    new_led.b = 0.0;
+                    *new_led = Rgb::new_from_u8(0, 0, 0);
                 }
 
                 new_leds[current_led] = led_color;
