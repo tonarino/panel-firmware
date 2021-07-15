@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 
-use crate::rgb_led::LED_COUNT;
+use crate::{rgb::Rgb, rgb_led::LED_COUNT};
 use panel_protocol::PulseMode;
 use panic_reset as _; // panic handler
 
@@ -11,7 +11,7 @@ use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
     overhead_light::OverheadLight,
-    rgb_led::{LedStrip, Pulser, Rgb},
+    rgb_led::{LedStrip, Pulser},
     serial::{Command, Report, SerialProtocol},
 };
 use cortex_m_rt::entry;
@@ -32,6 +32,7 @@ mod bootload;
 mod button;
 mod counter;
 mod overhead_light;
+mod rgb;
 mod rgb_led;
 mod serial;
 
@@ -117,15 +118,12 @@ fn main() -> ! {
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
     let mut counter = Counter::new(rotary_encoder);
-    // Previous intensity when used with dial turn intensity
-    let mut quadrature_zero_value = 0.0;
-    let mut previous_dial_turn_intensity = 0.0;
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin);
 
-    let mut led_color = (0.0, 30.0, 255.0);
+    let mut led_color = Rgb::new(0.0, 30.0, 255.0);
     let mut led_pulse = PulseMode::Solid;
 
     // Set up USB communication.
@@ -189,7 +187,7 @@ fn main() -> ! {
             if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
 
-                current_led = current_led.wrapping_add(diff as usize) % 4;
+                current_led = current_led.wrapping_add(diff as usize) % LED_COUNT;
             }
         }
 
@@ -207,7 +205,7 @@ fn main() -> ! {
                     _ => {},
                 },
                 Command::Led { r, g, b, pulse_mode } => {
-                    led_color = (r as f32, g as f32, b as f32);
+                    led_color = Rgb::new_from_u8(r, g, b);
                     led_pulse = pulse_mode;
                 },
                 Command::Bootload => {
@@ -224,9 +222,7 @@ fn main() -> ! {
                 let intensity = pulser.intensity();
 
                 for new_led in new_leds.iter_mut() {
-                    new_led.r = intensity * led_color.0;
-                    new_led.g = intensity * led_color.1;
-                    new_led.b = intensity * led_color.2;
+                    *new_led = led_color * intensity;
                 }
             },
             PulseMode::DialTurn => {
@@ -236,22 +232,18 @@ fn main() -> ! {
                     new_led.b = 0.0;
                 }
 
-                new_leds[current_led].r = led_color.0;
-                new_leds[current_led].g = led_color.1;
-                new_leds[current_led].b = led_color.2;
+                new_leds[current_led] = led_color;
             },
             PulseMode::Solid => {
                 let intensity = 1.0;
 
                 for new_led in new_leds.iter_mut() {
-                    new_led.r = intensity * led_color.0;
-                    new_led.g = intensity * led_color.1;
-                    new_led.b = intensity * led_color.2;
+                    *new_led = led_color * intensity;
                 }
             },
         };
 
-        const FADE_CONSTANT: f32 = 0.997;
+        const FADE_CONSTANT: f32 = 0.993;
         // Fade all leds toward the new leds
         for (led, new_led) in leds.iter_mut().zip(new_leds.iter()) {
             led.fade_towards(new_led, FADE_CONSTANT);

@@ -4,6 +4,8 @@ use embedded_hal::spi::FullDuplex;
 use hal::timer::{Instant, MonoTimer};
 use nb::block;
 
+use crate::rgb::Rgb;
+
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
 
@@ -12,28 +14,6 @@ const PI: f32 = 3.141_592_7e0;
 
 pub struct LedStrip<F: FullDuplex<u8>> {
     spi_bus: F,
-}
-
-#[derive(Copy, Clone)]
-pub struct Rgb {
-    /// All in the range 0.0 - 255.0
-    /// Rounded when actually in use
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-}
-
-impl Rgb {
-    pub fn new(r: f32, g: f32, b: f32) -> Self {
-        Self { r, g, b }
-    }
-
-    /// Fade the current color toward the other one with a simple moving average
-    pub fn fade_towards(&mut self, other: &Self, fade_const: f32) {
-        self.r = self.r * fade_const + other.r * (1.0 - fade_const);
-        self.g = self.g * fade_const + other.g * (1.0 - fade_const);
-        self.b = self.b * fade_const + other.b * (1.0 - fade_const);
-    }
 }
 
 impl<F: FullDuplex<u8>> LedStrip<F> {
@@ -46,9 +26,9 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
         self.flush();
 
         for _led in 0..LED_COUNT {
-            self.write_byte(rgb.g.clamp(0.0, 255.0) as u8);
-            self.write_byte(rgb.r.clamp(0.0, 255.0) as u8);
-            self.write_byte(rgb.b.clamp(0.0, 255.0) as u8);
+            self.write_byte(rgb.g());
+            self.write_byte(rgb.r());
+            self.write_byte(rgb.b());
         }
 
         self.flush();
@@ -59,9 +39,9 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
         self.flush();
 
         for led in rgb_data {
-            self.write_byte(led.g.clamp(0.0, 255.0) as u8);
-            self.write_byte(led.r.clamp(0.0, 255.0) as u8);
-            self.write_byte(led.b.clamp(0.0, 255.0) as u8);
+            self.write_byte(led.g());
+            self.write_byte(led.r());
+            self.write_byte(led.b());
         }
 
         self.flush();
