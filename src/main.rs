@@ -123,7 +123,7 @@ fn main() -> ! {
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
     let mut encoder_button = Button::new(debounced_encoder_pin);
 
-    let mut led_color = Rgb::new(0.0, 30.0, 255.0);
+    let mut led_color = Rgb::new_from_u8(0, 30, 255);
     let mut led_pulse = PulseMode::Solid;
 
     // Set up USB communication.
@@ -167,7 +167,7 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
-    let mut leds = [Rgb::new(0.0, 0.0, 0.0); LED_COUNT];
+    let mut leds = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
     let mut new_leds = leds;
 
     loop {
