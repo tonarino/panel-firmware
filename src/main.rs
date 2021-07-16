@@ -242,9 +242,11 @@ fn main() -> ! {
             },
         };
 
-        // Fade all leds toward the new leds
-        for (led, new_led) in current_led_colors.iter_mut().zip(target_led_colors.iter()) {
-            led.fade_towards(new_led, FADE_CONSTANT);
+        // Fade all leds toward the target led colors
+        for (current_led_color, target_led_color) in
+            current_led_colors.iter_mut().zip(target_led_colors.iter())
+        {
+            current_led_color.fade_towards(target_led_color, FADE_CONSTANT);
         }
         led_strip.set_colors(&current_led_colors);
     }
