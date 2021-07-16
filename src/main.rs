@@ -168,8 +168,8 @@ fn main() -> ! {
     led.set_low().unwrap();
 
     let mut current_led = 0usize;
-    let mut leds = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
-    let mut new_leds = leds;
+    let mut current_led_colors = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
+    let mut target_led_colors = current_led_colors;
 
     loop {
         match encoder_button.poll() {
@@ -222,30 +222,30 @@ fn main() -> ! {
                 pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
                 let intensity = pulser.intensity();
 
-                for new_led in new_leds.iter_mut() {
+                for new_led in target_led_colors.iter_mut() {
                     *new_led = led_color * intensity;
                 }
             },
             PulseMode::DialTurn => {
-                for new_led in new_leds.iter_mut() {
+                for new_led in target_led_colors.iter_mut() {
                     *new_led = Rgb::new_from_u8(0, 0, 0);
                 }
 
-                new_leds[current_led] = led_color;
+                target_led_colors[current_led] = led_color;
             },
             PulseMode::Solid => {
                 let intensity = 1.0;
 
-                for new_led in new_leds.iter_mut() {
+                for new_led in target_led_colors.iter_mut() {
                     *new_led = led_color * intensity;
                 }
             },
         };
 
         // Fade all leds toward the new leds
-        for (led, new_led) in leds.iter_mut().zip(new_leds.iter()) {
+        for (led, new_led) in current_led_colors.iter_mut().zip(target_led_colors.iter()) {
             led.fade_towards(new_led, FADE_CONSTANT);
         }
-        led_strip.set_colors(&leds);
+        led_strip.set_colors(&current_led_colors);
     }
 }

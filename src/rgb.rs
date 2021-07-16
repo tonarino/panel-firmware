@@ -4,9 +4,9 @@ use core::ops::{Add, Mul};
 pub struct Rgb {
     /// All in the range 0.0 - 255.0
     /// Rounded when actually in use
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
+    r: f32,
+    g: f32,
+    b: f32,
 }
 
 impl Rgb {
