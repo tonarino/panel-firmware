@@ -222,13 +222,13 @@ fn main() -> ! {
                 pulser.set_interval_ms(u16::from(interval_ms) as u32, &timer);
                 let intensity = pulser.intensity();
 
-                for new_led in target_led_colors.iter_mut() {
-                    *new_led = led_color * intensity;
+                for target_led_color in target_led_colors.iter_mut() {
+                    *target_led_color = led_color * intensity;
                 }
             },
             PulseMode::DialTurn => {
-                for new_led in target_led_colors.iter_mut() {
-                    *new_led = Rgb::new_from_u8(0, 0, 0);
+                for target_led_color in target_led_colors.iter_mut() {
+                    *target_led_color = Rgb::new_from_u8(0, 0, 0);
                 }
 
                 target_led_colors[current_led] = led_color;
@@ -236,8 +236,8 @@ fn main() -> ! {
             PulseMode::Solid => {
                 let intensity = 1.0;
 
-                for new_led in target_led_colors.iter_mut() {
-                    *new_led = led_color * intensity;
+                for target_led_color in target_led_colors.iter_mut() {
+                    *target_led_color = led_color * intensity;
                 }
             },
         };
