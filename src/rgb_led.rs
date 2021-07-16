@@ -4,6 +4,8 @@ use embedded_hal::spi::FullDuplex;
 use hal::timer::{Instant, MonoTimer};
 use nb::block;
 
+use crate::rgb::Rgb;
+
 // Reference implementation:
 // https://github.com/smart-leds-rs/ws2812-spi-rs/blob/fac281eb57b5f72c48e368682645e3b0bd5b4b83/src/lib.rs
 
@@ -14,31 +16,19 @@ pub struct LedStrip<F: FullDuplex<u8>> {
     spi_bus: F,
 }
 
-#[derive(Copy, Clone)]
-pub struct Rgb {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-impl Rgb {
-    pub fn new(r: u8, g: u8, b: u8) -> Self {
-        Self { r, g, b }
-    }
-}
-
 impl<F: FullDuplex<u8>> LedStrip<F> {
     pub fn new(spi_bus: F) -> Self {
         Self { spi_bus }
     }
 
+    #[allow(unused)]
     pub fn set_all(&mut self, rgb: Rgb) {
         self.flush();
 
         for _led in 0..LED_COUNT {
-            self.write_byte(rgb.g);
-            self.write_byte(rgb.r);
-            self.write_byte(rgb.b);
+            self.write_byte(rgb.g());
+            self.write_byte(rgb.r());
+            self.write_byte(rgb.b());
         }
 
         self.flush();
@@ -49,9 +39,9 @@ impl<F: FullDuplex<u8>> LedStrip<F> {
         self.flush();
 
         for led in rgb_data {
-            self.write_byte(led.g);
-            self.write_byte(led.r);
-            self.write_byte(led.b);
+            self.write_byte(led.g());
+            self.write_byte(led.r());
+            self.write_byte(led.b());
         }
 
         self.flush();
