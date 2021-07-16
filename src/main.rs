@@ -37,6 +37,7 @@ mod rgb_led;
 mod serial;
 
 static mut USB_ENDPOINT_MEMORY: [u32; 1024] = [0; 1024];
+const FADE_CONSTANT: f32 = 0.994;
 
 #[entry]
 fn main() -> ! {
@@ -241,7 +242,6 @@ fn main() -> ! {
             },
         };
 
-        const FADE_CONSTANT: f32 = 0.993;
         // Fade all leds toward the new leds
         for (led, new_led) in leds.iter_mut().zip(new_leds.iter()) {
             led.fade_towards(new_led, FADE_CONSTANT);
