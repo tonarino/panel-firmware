@@ -167,7 +167,7 @@ fn main() -> ! {
     // Turn the LED on to indicate we've powered up successfully.
     led.set_low().unwrap();
 
-    let mut current_led = 0usize;
+    let mut active_led_index = 0usize;
     let mut current_led_colors = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
     let mut target_led_colors = current_led_colors;
 
@@ -188,7 +188,7 @@ fn main() -> ! {
             if !encoder_button.is_pressed() {
                 protocol.report(Report::DialValue { diff }).unwrap();
 
-                current_led = current_led.wrapping_add(diff as usize) % LED_COUNT;
+                active_led_index = active_led_index.wrapping_add(diff as usize) % LED_COUNT;
             }
         }
 
@@ -231,7 +231,7 @@ fn main() -> ! {
                     *target_led_color = Rgb::new_from_u8(0, 0, 0);
                 }
 
-                target_led_colors[current_led] = led_color;
+                target_led_colors[active_led_index] = led_color;
             },
             PulseMode::Solid => {
                 let intensity = 1.0;
