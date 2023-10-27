@@ -5,6 +5,10 @@ authors = ["Brian Schwind <brianmschwind@gmail.com>"]
 license = "MIT"
 edition = "2018"
 
+[features]
+default = ["fan_control"]
+fan_control = []
+
 [dependencies]
 stm32f4xx-hal = { version = "0.9", features = ["rt", "stm32f411", "usb_fs"] }
 embedded-hal = "0.2"

@@ -7,10 +7,13 @@ use panic_reset as _; // panic handler
 
 use stm32f4xx_hal as hal;
 
+#[cfg(feature = "fan_control")]
+use crate::fan_controller::FanController;
+#[cfg(not(feature = "fan_control"))]
+use crate::overhead_light::OverheadLight;
 use crate::{
     button::{Active, Button, ButtonEvent, Debouncer},
     counter::Counter,
-    overhead_light::OverheadLight,
     rgb_led::{LedStrip, Pulser},
     serial::{Command, Report, SerialProtocol},
 };
@@ -31,6 +34,9 @@ use usbd_serial::{SerialPort, USB_CLASS_CDC};
 mod bootload;
 mod button;
 mod counter;
+#[cfg(feature = "fan_control")]
+mod fan_controller;
+#[cfg(not(feature = "fan_control"))]
 mod overhead_light;
 mod rgb;
 mod rgb_led;
@@ -90,28 +96,38 @@ fn main() -> ! {
     // PWM Setup
     let pwm_freq = 1.khz();
 
-    let back_light_pwm_pins = (
+    #[cfg(not(feature = "fan_control"))]
+    // Used for lights only.
+    let pwm_pin_block_a = (
         gpioa.pa0.into_alternate_af2(),
         gpioa.pa1.into_alternate_af2(),
         gpioa.pa2.into_alternate_af2(),
         gpioa.pa3.into_alternate_af2(),
     );
 
-    let front_light_pwm_pins = (
+    // Flexible between lights and fans.
+    let pwm_pin_block_b = (
         gpioa.pa6.into_alternate_af2(),
         gpioa.pa7.into_alternate_af2(),
         gpiob.pb0.into_alternate_af2(),
         gpiob.pb1.into_alternate_af2(),
     );
 
-    let (pwm1, pwm2, pwm3, pwm4) = pwm::tim5(dp.TIM5, back_light_pwm_pins, clocks, pwm_freq);
-    let (pwm5, pwm6, pwm7, pwm8) = pwm::tim3(dp.TIM3, front_light_pwm_pins, clocks, pwm_freq);
+    #[cfg(not(feature = "fan_control"))]
+    let (pwm1, pwm2, pwm3, pwm4) = pwm::tim5(dp.TIM5, pwm_pin_block_a, clocks, pwm_freq);
 
+    let (pwm5, pwm6, pwm7, pwm8) = pwm::tim3(dp.TIM3, pwm_pin_block_b, clocks, pwm_freq);
+
+    #[cfg(not(feature = "fan_control"))]
     // The overhead light closer to the screen.
     let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
 
+    #[cfg(not(feature = "fan_control"))]
     // The overhead light farther away from the screen.
     let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
+
+    #[cfg(feature = "fan_control")]
+    let mut fan_controller = FanController::new(pwm5, pwm6, pwm7, pwm8);
 
     // Connect a rotary encoder to pins A8 and A9.
     let rotary_encoder_timer = dp.TIM1;
@@ -195,11 +211,13 @@ fn main() -> ! {
         // TODO(bschwind) - Report any poll errors back to the USB host if possible.
         for command in protocol.poll().unwrap() {
             match command {
+                #[cfg(not(feature = "fan_control"))]
                 Command::Brightness { target, value } => match target {
                     0 => front_light.set_brightness(value),
                     1 => back_light.set_brightness(value),
                     _ => {},
                 },
+                #[cfg(not(feature = "fan_control"))]
                 Command::Temperature { target, value } => match target {
                     0 => front_light.set_color_temperature(value),
                     1 => back_light.set_color_temperature(value),
@@ -212,6 +230,10 @@ fn main() -> ! {
                 Command::Bootload => {
                     led.set_high().unwrap();
                     bootload::request_bootloader();
+                },
+                #[cfg(feature = "fan_control")]
+                Command::FanSpeed { target, value } if target < 4 => {
+                    fan_controller.set_speed(value, target)
                 },
                 _ => {},
             }
