@@ -6,6 +6,7 @@ license = "MIT"
 edition = "2018"
 
 [dependencies]
+arrayvec = { version = "0.5.2", default-features = false }
 stm32f4xx-hal = { version = "0.9", features = ["rt", "stm32f411", "usb_fs"] }
 embedded-hal = "0.2"
 cortex-m = "0.7"

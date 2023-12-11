@@ -14,6 +14,8 @@ use crate::{
     rgb_led::{LedStrip, Pulser},
     serial::{Command, Report, SerialProtocol},
 };
+use arrayvec::ArrayString;
+use core::fmt::Write;
 use cortex_m_rt::entry;
 use embedded_hal::digital::v2::OutputPin;
 use hal::{
@@ -183,6 +185,10 @@ fn main() -> ! {
             },
             _ => {},
         }
+
+        let mut buf = ArrayString::<[u8; 256]>::new();
+        write!(&mut buf, "count: {}", counter.current_count()).expect("can write count");
+        protocol.debug(buf.as_str());
 
         if let Some(diff) = counter.poll() {
             if !encoder_button.is_pressed() {

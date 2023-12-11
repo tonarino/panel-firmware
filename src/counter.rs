@@ -23,4 +23,8 @@ impl<PINS> Counter<PINS> {
             None
         }
     }
+
+    pub fn current_count(&self) -> u16 {
+        self.qei.count()
+    }
 }
