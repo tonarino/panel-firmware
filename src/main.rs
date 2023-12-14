@@ -118,7 +118,7 @@ fn main() -> ! {
     let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
 
-    let mut counter = Counter::new(rotary_encoder);
+    let mut counter = Counter::new(rotary_encoder, &timer);
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
