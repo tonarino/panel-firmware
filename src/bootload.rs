@@ -28,9 +28,9 @@ pub fn jump_to_bootloader_if_requested(dp: &stm32::Peripherals) {
     let magic_num: u32 = read_backup_register(dp);
 
     if magic_num == MAGIC_BOOTLOADER_NUMBER {
-        enable_backup_domain(&dp);
+        enable_backup_domain(dp);
         write_to_backup_register(0, dp);
-        disable_backup_domain(&dp);
+        disable_backup_domain(dp);
 
         unsafe {
             cortex_m::asm::bootload(BOOTLOADER_FIRMWARE_MEMORY_LOCATION as *const u32);
