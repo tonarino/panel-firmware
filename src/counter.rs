@@ -16,9 +16,9 @@ impl<PINS> Counter<PINS> {
         let count = self.qei.count();
         let diff = count.wrapping_sub(self.last_count) as i16;
 
-        if diff.abs() >= 4 {
+        if diff.abs() >= 2 {
             self.last_count = count;
-            Some((diff / 4) as i8)
+            Some((diff / 2) as i8)
         } else {
             None
         }

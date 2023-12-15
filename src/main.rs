@@ -118,10 +118,15 @@ fn main() -> ! {
     let rotary_encoder_timer = dp.TIM1;
     let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
     let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
-    // Change the polarity of the encoder to Falling edge - it could better align with the detents of our volume dial.
-    // Taken form https://github.com/stm32-rs/stm32f4xx-hal/issues/410
+
     unsafe {
-        (*TIM1::ptr()).ccer.write(|w| w.cc1p().set_bit().cc2p().set_bit());
+        // Change the polarity of the encoder to Falling edge - it could better align with the detents of our volume dial.
+        // Taken form https://github.com/stm32-rs/stm32f4xx-hal/issues/410
+        // (*TIM1::ptr()).ccer.write(|w| w.cc1p().set_bit().cc2p().set_bit());
+
+        // Change the mode of the QEI decoder to mode 1:
+        // Counter counts up/down on TI2FP1 edge depending on TI1FP2 level.
+        (*TIM1::ptr()).smcr.write(|w| w.sms().encoder_mode_1());
     }
 
     let mut counter = Counter::new(rotary_encoder);
