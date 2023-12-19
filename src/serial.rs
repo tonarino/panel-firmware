@@ -4,10 +4,12 @@ use hal::{
     otg_fs::{UsbBus, USB},
     serial::{self},
 };
-use panel_protocol::{ArrayString, ArrayVec, MAX_COMMAND_LEN, MAX_COMMAND_QUEUE_LEN};
+use panel_protocol::{ArrayString, ArrayVec, MAX_COMMAND_LEN};
 pub use panel_protocol::{Command, CommandReader, Report};
 use usb_device::{device::UsbDevice, UsbError};
 use usbd_serial::SerialPort;
+
+const MAX_COMMAND_QUEUE_LEN: usize = 8;
 
 type Stm32F4UsbDevice = stm32f4xx_hal::otg_fs::UsbBus<stm32f4xx_hal::otg_fs::USB>;
 
@@ -65,7 +67,7 @@ impl<'a> SerialProtocol<'a> {
     }
 
     /// Check to see if a new command from host is available
-    pub fn poll(&mut self) -> Result<ArrayVec<[Command; MAX_COMMAND_QUEUE_LEN]>, Error> {
+    pub fn poll(&mut self) -> Result<ArrayVec<Command, MAX_COMMAND_QUEUE_LEN>, Error> {
         self.usb_device.poll(&mut [&mut self.usb_serial_device]);
 
         match self.usb_serial_device.read(&mut self.read_buf[..]) {
