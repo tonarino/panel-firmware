@@ -1,3 +1,4 @@
 /target
 panel-brain-firmware.bin
 .vscode/
+.DS_Store
