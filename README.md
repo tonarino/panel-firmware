@@ -8,7 +8,7 @@ More info outlined here:
 
 ## Dependencies
 
-* [cargo, rustc](https://rustup.rs)
+* [cargo, rustc](https://rustup.rs) (strict dependency on 1.60.0. see https://github.com/tonarino/panel-firmware/issues/28)
 * `dfu-util` (`brew install dfu-util`, `apt install dfu-util`, etc.)
 * (Optional, for UART flashing) `stm32flash` (`brew install stm32flash`, `apt install stm32flash`, etc.)
 * (Optional, for UART flashing) `serial-monitor` (`cargo install serial-monitor`)
