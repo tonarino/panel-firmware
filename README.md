@@ -29,7 +29,10 @@ The firmware also used to run on the cheaper STM32F103-based boards. Look in the
 ## Steps
 
 ```
+rustup override set 1.60
 rustup target add thumbv7em-none-eabihf
+cargo install cargo-binutils
+rustup component add llvm-tools-preview
 ```
 
 ## Workflow
