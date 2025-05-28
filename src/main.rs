@@ -42,11 +42,8 @@ const FADE_CONSTANT: f32 = 0.994;
 #[entry]
 fn main() -> ! {
     let panel_serial_number = env!("PANEL_SERIAL_NUMBER");
-    let mut cp =
-        cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
+    let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = stm32::Peripherals::take().expect("failed to get stm32 peripherals");
-
-    cp.DWT.enable_cycle_counter();
 
     // This call needs to happen as early as possible in the firmware.
     bootload::jump_to_bootloader_if_requested(&dp);
@@ -174,6 +171,8 @@ fn main() -> ! {
     let mut current_led_colors = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
     let mut target_led_colors = current_led_colors;
 
+    let start_time = timer.now();
+
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Press) => {
@@ -195,11 +194,8 @@ fn main() -> ! {
             }
         }
 
-        // Every 3 seconds.
-        const PHASE_INTERVAL: u32 = 3;
-
-        let count = cortex_m::peripheral::DWT::get_cycle_count();
-        let phase = (count / 168_000_000 / PHASE_INTERVAL) % 3;
+        const PHASE_INTERVAL_SEC: u32 = 3;
+        let phase = (start_time.elapsed() / timer.frequency().0 / PHASE_INTERVAL_SEC) % 3;
         match phase {
             0 => {
                 front_light.set_brightness(10_000);
