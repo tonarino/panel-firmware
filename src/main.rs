@@ -171,6 +171,8 @@ fn main() -> ! {
     let mut current_led_colors = [Rgb::new_from_u8(0, 0, 0); LED_COUNT];
     let mut target_led_colors = current_led_colors;
 
+    let start_time = timer.now();
+
     loop {
         match encoder_button.poll() {
             Some(ButtonEvent::Press) => {
@@ -192,16 +194,34 @@ fn main() -> ! {
             }
         }
 
+        const PHASE_INTERVAL_SEC: u32 = 3;
+        let phase = (start_time.elapsed() / timer.frequency().0 / PHASE_INTERVAL_SEC) % 3;
+        match phase {
+            0 => {
+                front_light.set_brightness(10_000);
+                front_light.set_color_temperature(10_000);
+            },
+            1 => {
+                front_light.set_brightness(60_000);
+                front_light.set_color_temperature(10_000);
+            },
+            2 => {
+                front_light.set_brightness(10_000);
+                front_light.set_color_temperature(60_000);
+            },
+            _ => {},
+        }
+
         // TODO(bschwind) - Report any poll errors back to the USB host if possible.
         for command in protocol.poll().unwrap() {
             match command {
                 Command::Brightness { target, value } => match target {
-                    0 => front_light.set_brightness(value),
+                    0 => { /* front_light.set_brightness(value) */ },
                     1 => back_light.set_brightness(value),
                     _ => {},
                 },
                 Command::Temperature { target, value } => match target {
-                    0 => front_light.set_color_temperature(value),
+                    0 => { /* front_light.set_color_temperature(value) */ },
                     1 => back_light.set_color_temperature(value),
                     _ => {},
                 },
