@@ -42,8 +42,11 @@ const FADE_CONSTANT: f32 = 0.994;
 #[entry]
 fn main() -> ! {
     let panel_serial_number = env!("PANEL_SERIAL_NUMBER");
-    let cp = cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
+    let mut cp =
+        cortex_m::peripheral::Peripherals::take().expect("failed to get cortex_m peripherals");
     let dp = stm32::Peripherals::take().expect("failed to get stm32 peripherals");
+
+    cp.DWT.enable_cycle_counter();
 
     // This call needs to happen as early as possible in the firmware.
     bootload::jump_to_bootloader_if_requested(&dp);
@@ -192,16 +195,37 @@ fn main() -> ! {
             }
         }
 
+        // Every 3 seconds.
+        const PHASE_INTERVAL: u32 = 3;
+
+        let count = cortex_m::peripheral::DWT::get_cycle_count();
+        let phase = (count / 168_000_000 / PHASE_INTERVAL) % 3;
+        match phase {
+            0 => {
+                front_light.set_brightness(10_000);
+                front_light.set_color_temperature(10_000);
+            },
+            1 => {
+                front_light.set_brightness(60_000);
+                front_light.set_color_temperature(10_000);
+            },
+            2 => {
+                front_light.set_brightness(10_000);
+                front_light.set_color_temperature(60_000);
+            },
+            _ => {},
+        }
+
         // TODO(bschwind) - Report any poll errors back to the USB host if possible.
         for command in protocol.poll().unwrap() {
             match command {
                 Command::Brightness { target, value } => match target {
-                    0 => front_light.set_brightness(value),
+                    0 => { /* front_light.set_brightness(value) */ },
                     1 => back_light.set_brightness(value),
                     _ => {},
                 },
                 Command::Temperature { target, value } => match target {
-                    0 => front_light.set_color_temperature(value),
+                    0 => { /* front_light.set_color_temperature(value) */ },
                     1 => back_light.set_color_temperature(value),
                     _ => {},
                 },
