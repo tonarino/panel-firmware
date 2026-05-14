@@ -110,11 +110,15 @@ fn main() -> ! {
     // Start the "front light" PWM channels on full duty to work around
     // https://github.com/tonarino/portal/issues/6074. The effect on gen3 portals is that all fans
     // start at the lowest speed preventing the 12V fuse from tripping.
-    let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4, u16::MAX);
+    const INITIAL_DUTY: u16 = u16::MAX;
+    /// We observed that the fuse can sustain fans running at 80% speed.
+    /// Set the minimal duty to u16:MAX * 0.8 to cap the fan speed to 80%.
+    const MIN_DUTY: u16 = 52428;
+    let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4, INITIAL_DUTY, MIN_DUTY);
 
     // On gen3 portals these are the channels that control the light bar. Start them with zero duty
     // which is the same as the light-bar's own default to prevent flicker on power on.
-    let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8, 0);
+    let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8, 0, 0);
 
     // Connect a rotary encoder to pins A8 and A9.
     let rotary_encoder_timer = dp.TIM1;
