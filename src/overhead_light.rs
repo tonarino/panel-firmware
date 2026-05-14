@@ -25,19 +25,18 @@ where
         mut brightness_c2: P2,
         mut color_c1: P3,
         mut color_c2: P4,
+        initial_duty: u16,
     ) -> Self {
         brightness_c1.enable();
         brightness_c2.enable();
         color_c1.enable();
         color_c2.enable();
 
-        // Set maximum brightness
-        brightness_c1.set_duty(0);
-        brightness_c2.set_duty(0);
+        brightness_c1.set_duty(initial_duty);
+        brightness_c2.set_duty(initial_duty);
 
-        // Set white color temperature
-        color_c1.set_duty(0);
-        color_c2.set_duty(0);
+        color_c1.set_duty(initial_duty);
+        color_c2.set_duty(initial_duty);
 
         OverheadLight { brightness_c1, brightness_c2, color_c1, color_c2 }
     }

@@ -107,11 +107,14 @@ fn main() -> ! {
     let (pwm1, pwm2, pwm3, pwm4) = pwm::tim5(dp.TIM5, back_light_pwm_pins, clocks, pwm_freq);
     let (pwm5, pwm6, pwm7, pwm8) = pwm::tim3(dp.TIM3, front_light_pwm_pins, clocks, pwm_freq);
 
-    // The overhead light closer to the screen.
-    let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4);
+    // Start the "front light" PWM channels on full duty to work around
+    // https://github.com/tonarino/portal/issues/6074. The effect on gen3 portals is that all fans
+    // start at the lowest speed preventing the 12V fuse from tripping.
+    let mut front_light = OverheadLight::new(pwm1, pwm2, pwm3, pwm4, u16::MAX);
 
-    // The overhead light farther away from the screen.
-    let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
+    // On gen3 portals these are the channels that control the light bar. Start them with zero duty
+    // which is the same as the light-bar's own default to prevent flicker on power on.
+    let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8, 0);
 
     // Connect a rotary encoder to pins A8 and A9.
     let rotary_encoder_timer = dp.TIM1;
