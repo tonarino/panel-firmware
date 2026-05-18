@@ -11,7 +11,7 @@ where
     brightness_c2: P2,
     color_c1: P3,
     color_c2: P4,
-    min_duty: u16,
+    max_duty: u16,
 }
 
 impl<P1, P2, P3, P4> OverheadLight<P1, P2, P3, P4>
@@ -27,33 +27,33 @@ where
         mut color_c1: P3,
         mut color_c2: P4,
         initial_duty: u16,
-        min_duty: u16,
+        max_duty: u16,
     ) -> Self {
         brightness_c1.enable();
         brightness_c2.enable();
         color_c1.enable();
         color_c2.enable();
 
+        // Invert the value because our transistor circuit inverts the PWM signal.
+        let initial_duty = u16::MAX - initial_duty;
         brightness_c1.set_duty(initial_duty);
         brightness_c2.set_duty(initial_duty);
-
         color_c1.set_duty(initial_duty);
         color_c2.set_duty(initial_duty);
 
-        OverheadLight { brightness_c1, brightness_c2, color_c1, color_c2, min_duty }
+        OverheadLight { brightness_c1, brightness_c2, color_c1, color_c2, max_duty }
     }
 
     /// Sets the brightness of both channels.
     /// 0 = Off
     /// u16::MAX = Full brightness
     pub fn set_brightness(&mut self, brightness: u16) {
+        let brightness = brightness.min(self.max_duty);
         // Invert the value because our transistor circuit inverts the PWM signal.
         let brightness = u16::MAX - brightness;
 
         let adjusted = ((brightness as f32 / u16::MAX as f32)
             * self.brightness_c1.get_max_duty() as f32) as u16;
-
-        let adjusted = adjusted.max(self.min_duty);
 
         self.brightness_c1.set_duty(adjusted);
         self.brightness_c2.set_duty(adjusted);
@@ -63,13 +63,12 @@ where
     /// 0 = Full yellow
     /// u16::MAX = Full white
     pub fn set_color_temperature(&mut self, color: u16) {
+        let color = color.min(self.max_duty);
         // Invert the value because our transistor circuit inverts the PWM signal.
         let color = u16::MAX - color;
 
         let adjusted =
             ((color as f32 / u16::MAX as f32) * self.color_c1.get_max_duty() as f32) as u16;
-
-        let adjusted = adjusted.max(self.min_duty);
 
         self.color_c1.set_duty(adjusted);
         self.color_c2.set_duty(adjusted);
