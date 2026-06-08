@@ -4,6 +4,7 @@ use embedded_hal::digital::v2::InputPin;
 pub struct Counter<A: InputPin, B: InputPin> {
     pin_a: A,
     pin_b: B,
+    /// The last sampled levels of (A, B) pins.
     prev_state: (bool, bool),
 }
 
