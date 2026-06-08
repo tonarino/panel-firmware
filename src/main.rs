@@ -20,7 +20,6 @@ use hal::{
     otg_fs::{UsbBus, USB},
     prelude::*,
     pwm,
-    qei::Qei,
     spi::{Mode as SpiMode, NoMiso, NoSck, Phase, Polarity, Spi},
     stm32,
     timer::MonoTimer,
@@ -114,11 +113,7 @@ fn main() -> ! {
     let mut back_light = OverheadLight::new(pwm5, pwm6, pwm7, pwm8);
 
     // Connect a rotary encoder to pins A8 and A9.
-    let rotary_encoder_timer = dp.TIM1;
-    let rotary_encoder_pins = (gpioa.pa8.into_alternate_af1(), gpioa.pa9.into_alternate_af1());
-    let rotary_encoder = Qei::new(rotary_encoder_timer, rotary_encoder_pins);
-
-    let mut counter = Counter::new(rotary_encoder);
+    let mut counter = Counter::new(gpioa.pa8, gpioa.pa9);
 
     let button_pin = gpioa.pa10.into_pull_up_input();
     let debounced_encoder_pin = Debouncer::new(button_pin, Active::Low, 30, 3000);
