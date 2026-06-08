@@ -1,36 +1,42 @@
-use hal::{prelude::*, qei::Qei, stm32::TIM1};
-use stm32f4xx_hal as hal;
+use core::convert::Infallible;
+use embedded_hal::digital::v2::InputPin;
 
-pub struct Counter<PINS> {
-    qei: Qei<TIM1, PINS>,
-    last_count: u16,
+pub struct Counter<A: InputPin, B: InputPin> {
+    pin_a: A,
+    pin_b: B,
+    /// The last sampled levels of (A, B) pins.
+    prev_state: (bool, bool),
 }
 
-impl<PINS> Counter<PINS> {
-    pub fn new(qei: Qei<TIM1, PINS>) -> Self {
-        unsafe {
-            // TODO(bschwind) - Expose this functionality with a safe interface
-            //                  in stm32f4xx-hal.
-            // Change the mode of the QEI decoder to mode 1:
-            // Counter counts up/down on TI2FP1 edge depending on TI1FP2 level.
-            // Or in layman's terms, the encoder counts up and down on encoder
-            // pin A edges, while referencing the state of encoder pin B.
-            (*TIM1::ptr()).smcr.write(|w| w.sms().encoder_mode_1());
-        }
+impl<A: InputPin<Error = Infallible>, B: InputPin<Error = Infallible>> Counter<A, B> {
+    pub fn new(pin_a: A, pin_b: B) -> Self {
+        let prev_state = read_state(&pin_a, &pin_b);
 
-        let last_count = qei.count();
-        Counter { qei, last_count }
+        Self { pin_a, pin_b, prev_state }
     }
 
     pub fn poll(&mut self) -> Option<i8> {
-        let count = self.qei.count();
-        let diff = count.wrapping_sub(self.last_count) as i16;
+        let curr_state = read_state(&self.pin_a, &self.pin_b);
 
-        if diff.abs() >= 2 {
-            self.last_count = count;
-            Some((diff / 2) as i8)
-        } else {
-            None
-        }
+        // We only count a pulse on the rising or falling edge of B, and
+        // the direction depends on the level of A, which should be unchanged
+        // as B rises or falls. The falling edge of B should be roughly in the
+        // middle of the two detents, according to the Alps EC20A datasheet.
+        let dial_diff = match (self.prev_state, curr_state) {
+            ((false, true), (false, false)) => Some(1),
+            ((false, false), (false, true)) => Some(-1),
+            _ => None,
+        };
+
+        self.prev_state = curr_state;
+
+        dial_diff
     }
+}
+
+fn read_state(
+    a: &dyn InputPin<Error = Infallible>,
+    b: &dyn InputPin<Error = Infallible>,
+) -> (bool, bool) {
+    (a.is_high().unwrap(), b.is_high().unwrap())
 }
