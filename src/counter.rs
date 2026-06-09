@@ -1,31 +1,49 @@
 use core::convert::Infallible;
 use embedded_hal::digital::v2::InputPin;
 
+const EDGES_PER_DETENT: i8 = 3;
+
 pub struct Counter<A: InputPin, B: InputPin> {
     pin_a: A,
     pin_b: B,
     prev_state: (bool, bool),
+    pulse_count: i8,
 }
 
 impl<A: InputPin<Error = Infallible>, B: InputPin<Error = Infallible>> Counter<A, B> {
     pub fn new(pin_a: A, pin_b: B) -> Self {
         let prev_state = read_state(&pin_a, &pin_b);
 
-        Self { pin_a, pin_b, prev_state }
+        let pulse_count = match prev_state {
+            (true, _) => 0,
+            (false, true) => 1,
+            (false, false) => -1,
+        };
+
+        Self { pin_a, pin_b, prev_state, pulse_count }
     }
 
     pub fn poll(&mut self) -> Option<i8> {
+        let mut dial_diff = None;
+
         let curr_state = read_state(&self.pin_a, &self.pin_b);
 
-        // We only count a pulse on the rising or falling edge of B, and
-        // the direction depends on the level of A, which should be unchanged
-        // as B rises or falls. The falling edge of B should be roughly in the
-        // middle of the two detents, according to the Alps EC20A datasheet.
-        let dial_diff = match (self.prev_state, curr_state) {
-            ((false, true), (false, false)) => Some(1),
-            ((false, false), (false, true)) => Some(-1),
-            _ => None,
-        };
+        match (self.prev_state, curr_state) {
+            ((true, true), (false, true))
+            | ((false, true), (false, false))
+            | ((false, false), (true, false)) => self.pulse_count += 1,
+            ((true, false), (false, false))
+            | ((false, false), (false, true))
+            | ((false, true), (true, true)) => self.pulse_count -= 1,
+            _ => {},
+        }
+
+        if self.pulse_count.abs() >= EDGES_PER_DETENT {
+            // Will be -1 or +1
+            let diff = self.pulse_count.signum();
+            self.pulse_count = 0;
+            dial_diff = Some(diff);
+        }
 
         self.prev_state = curr_state;
 
